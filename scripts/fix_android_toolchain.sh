@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fix Android toolchain after `flutter create` (Flutter 3.47 + Built-in Kotlin).
-# AGP 9.1.1 | Gradle 9.3.1 | android.builtInKotlin=true
+# Fix Android toolchain after `flutter create` (Flutter 3.47+).
+# AGP 9.1.1 | Kotlin 2.2.20 | Gradle 9.3.1 | builtInKotlin=true
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -28,12 +28,13 @@ pluginManagement {
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
     id "com.android.application" version "9.1.1" apply false
+    id "org.jetbrains.kotlin.android" version "2.2.20" apply false
 }
 
 include ":app"
 SETEOF
 
-# Always write migrated app/build.gradle (no Kotlin Gradle Plugin)
+# App module: no kotlin-android plugin (Built-in Kotlin via AGP)
 cat > android/app/build.gradle << 'APPEOF'
 plugins {
     id "com.android.application"
@@ -89,6 +90,7 @@ org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G -Dfile.encoding=UTF-8
 android.useAndroidX=true
 android.enableJetifier=true
 android.builtInKotlin=true
+kotlin.version=2.2.20
 GPEOF
 
 mkdir -p android/gradle/wrapper
@@ -115,4 +117,4 @@ void main() {
 }
 TESTEOF
 
-echo "Android toolchain fixed: AGP 9.1.1, Built-in Kotlin, Gradle 9.3.1"
+echo "Android toolchain fixed: AGP 9.1.1, Kotlin 2.2.20, Gradle 9.3.1, builtInKotlin=true"
