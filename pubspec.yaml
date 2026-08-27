@@ -1,7 +1,7 @@
 name: mport_browser
 description: Premium MPorT Browser for MandalaNet ISP — multi-tab, privacy, search engines, AI.
 publish_to: "none"
-version: 2.1.0+10
+version: 2.1.1+11
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
