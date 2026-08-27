@@ -131,7 +131,6 @@ MPorT memakai **Android System WebView berbasis Chromium** lewat `webview_flutte
 **Bukan** embed Chromium/CEF penuh:
 - CEF (`webview_cef`) hanya untuk **desktop** (Windows/macOS/Linux)
 - Ekstensi Chrome (`.crx` / Add to Chrome) **tidak didukung** di WebView Android
-- Untuk engine Chrome asli + login/cookie Chrome: gunakan **Buka di Chrome** (Custom Tabs)
 
 ## MPorT AI (Gemini — gratis)
 

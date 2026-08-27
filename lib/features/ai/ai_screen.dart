@@ -31,6 +31,12 @@ class _AiScreenState extends State<AiScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStatus());
   }
 
+  @override
+  void dispose() {
+    input.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadStatus() async {
     try {
       final key = await ai.resolveGeminiKey();
@@ -88,23 +94,16 @@ class _AiScreenState extends State<AiScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(Icons.vpn_key_rounded, color: AppTheme.cyanNeon),
-                      const SizedBox(width: 10),
-                      Text(
-                        'AI API Key',
-                        style: GoogleFonts.orbitron(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Setup MPorT AI',
+                    style: GoogleFonts.orbitron(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Ambil key gratis di aistudio.google.com/apikey, lalu tempel di bawah. '
-                    'Free tier cukup untuk pemakaian ringan.',
+                    'Ambil API key gratis di aistudio.google.com/apikey, lalu tempel di bawah.',
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
@@ -119,7 +118,6 @@ class _AiScreenState extends State<AiScreen> {
                     decoration: InputDecoration(
                       labelText: 'API Key',
                       hintText: 'AIza...',
-                      hintStyle: const TextStyle(color: AppTheme.textMuted),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -137,9 +135,8 @@ class _AiScreenState extends State<AiScreen> {
                     controller: modelCtrl,
                     style: const TextStyle(color: AppTheme.textPrimary),
                     decoration: const InputDecoration(
-                      labelText: 'Model',
+                      labelText: 'Model (opsional)',
                       hintText: 'gemini-3.7-flash',
-                      hintStyle: TextStyle(color: AppTheme.textMuted),
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -159,31 +156,29 @@ class _AiScreenState extends State<AiScreen> {
                           SnackBar(
                             content: Text(
                               key.isEmpty
-                                  ? 'API key cleared'
-                                  : 'Gemini API key saved',
+                                  ? 'API key dihapus'
+                                  : 'API key tersimpan — siap dipakai',
                             ),
                           ),
                         );
                       }
                     },
                     icon: const Icon(Icons.save_rounded),
-                    label: const Text('Save'),
+                    label: const Text('Simpan'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.cyanNeon,
                       foregroundColor: AppTheme.bgDeep,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
-                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () async {
                       await ai.saveGeminiKey('');
                       if (ctx.mounted) Navigator.pop(ctx);
                       await _loadStatus();
                     },
-                    child: const Text('Clear key'),
+                    child: const Text('Hapus key'),
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
             );
@@ -200,14 +195,15 @@ class _AiScreenState extends State<AiScreen> {
     final text = input.text.trim();
     if (text.isEmpty || loading) return;
 
+    // Re-check key every send (build-time key / storage may change)
+    final key = await ai.resolveGeminiKey();
+    hasKey = key != null && key.isNotEmpty;
     if (!hasKey) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Setup AI key first'),
-          action: SnackBarAction(
-            label: 'Setup',
-            onPressed: _openKeySettings,
-          ),
+          content: const Text('Setup API key dulu agar MPorT AI bisa menjawab'),
+          action: SnackBarAction(label: 'Setup', onPressed: _openKeySettings),
         ),
       );
       await _openKeySettings();
@@ -230,10 +226,15 @@ class _AiScreenState extends State<AiScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      var msg = '$e';
+      // Strip Exception: prefix for cleaner UI
+      if (msg.startsWith('Exception: ')) {
+        msg = msg.substring('Exception: '.length);
+      }
       setState(() {
         messages.add({
           'role': 'assistant',
-          'content': 'MPorT AI error: $e',
+          'content': '⚠️ $msg',
         });
       });
     } finally {
@@ -256,6 +257,32 @@ class _AiScreenState extends State<AiScreen> {
       ),
       body: Column(
         children: [
+          if (!hasKey)
+            Material(
+              color: AppTheme.cyanNeon.withValues(alpha: 0.12),
+              child: InkWell(
+                onTap: _openKeySettings,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded,
+                          color: AppTheme.cyanNeon, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Belum ada API key — ketuk untuk setup (gratis)',
+                          style: GoogleFonts.inter(fontSize: 13),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textMuted),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: messages.isEmpty
                 ? Center(
@@ -276,7 +303,7 @@ class _AiScreenState extends State<AiScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Ask anything — summaries, translate, privacy tips.',
+                            'Tanya apa saja — ringkas halaman, terjemah, tips privasi.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               color: AppTheme.textSecondary,
@@ -366,7 +393,7 @@ class _AiScreenState extends State<AiScreen> {
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => send(),
                       decoration: const InputDecoration(
-                        hintText: 'Ask MPorT AI...',
+                        hintText: 'Tanya MPorT AI...',
                       ),
                     ),
                   ),
@@ -386,11 +413,5 @@ class _AiScreenState extends State<AiScreen> {
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    input.dispose();
-    super.dispose();
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -64,26 +65,67 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     });
   }
 
+  String _decodeJsResult(dynamic result) {
+    if (result == null) return '';
+    if (result is String) {
+      final s = result.trim();
+      if ((s.startsWith('"') && s.endsWith('"')) ||
+          (s.startsWith("'") && s.endsWith("'"))) {
+        try {
+          final decoded = jsonDecode(s);
+          if (decoded is String) return decoded;
+        } catch (_) {
+          if (s.length >= 2) return s.substring(1, s.length - 1);
+        }
+      }
+      return s;
+    }
+    return result.toString();
+  }
+
   Future<void> _refreshElements() async {
-    if (c == null || kIsWeb) {
-      setState(() => _elementsHtml = '(WebView not available)');
+    if (c == null) {
+      setState(() => _elementsHtml =
+          'Tidak ada BrowserController.\nBuka halaman web dulu, lalu buka Developer Tools dari menu.');
+      return;
+    }
+    if (kIsWeb) {
+      setState(() => _elementsHtml = '(Inspect tidak tersedia di build web)');
+      return;
+    }
+    final tab = c!.tabs.active;
+    final url = tab.url;
+    if (url.isEmpty || url == 'about:blank') {
+      setState(() => _elementsHtml =
+          'Belum ada halaman dimuat (about:blank).\n'
+          'Buka situs di tab browser, lalu tekan Inspect lagi.');
       return;
     }
     setState(() => _loadingElements = true);
     try {
-      final result =
-          await c!.tabs.active.controller.runJavaScriptReturningResult(
-        '(function(){try{var html=document.documentElement.outerHTML||"";'
-        'if(html.length>12000)html=html.substring(0,12000)+"\\n...truncated";'
-        'return html;}catch(e){return String(e);}})()',
+      final result = await tab.controller.runJavaScriptReturningResult(
+        '(function(){try{'
+        'var html=document.documentElement'
+        '? (document.documentElement.outerHTML||"")'
+        ': (document.body?document.body.outerHTML:"");'
+        'if(!html)return "(empty document)";'
+        'if(html.length>16000)html=html.substring(0,16000)+"\\n... truncated ...";'
+        'return html;'
+        '}catch(e){return "JS Error: "+e;}})()',
       );
+      final html = _decodeJsResult(result);
       setState(() {
-        _elementsHtml = result?.toString() ?? '(empty)';
+        _elementsHtml = html.isEmpty ? '(empty result from WebView)' : html;
         _loadingElements = false;
       });
     } catch (e) {
       setState(() {
-        _elementsHtml = 'Error: $e';
+        _elementsHtml =
+            'Inspect gagal: $e\n\n'
+            'Tips:\n'
+            '• Pastikan halaman sudah selesai loading\n'
+            '• Buka Developer Tools dari menu saat tab web aktif\n'
+            '• Beberapa halaman (chrome://, about:) tidak bisa di-inspect';
         _loadingElements = false;
       });
     }
