@@ -88,11 +88,11 @@ jobs:
           chmod 600 "$KEYSTORE_FILE"
 
           cat > android/key.properties <<EOF2
-storePassword=$KEYSTORE_PASSWORD
-keyPassword=$KEY_PASSWORD
-keyAlias=$KEY_ALIAS
-storeFile=$KEYSTORE_FILE
-EOF2
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$KEYSTORE_FILE
+          EOF2
           chmod 600 android/key.properties
 
           keytool -list -v \
