@@ -3,13 +3,11 @@ class AppConfig {
   static const version = '2.1.7';
   static const brandName = 'MandalaNet';
 
-  /// Public web portal (New Tab default / home page inside WebView).
   static const webBaseUrl = String.fromEnvironment(
     'MPORT_URL',
     defaultValue: 'https://mandalanet.id',
   );
 
-  /// Laravel API base, e.g. https://portal.example.com/api
   static const apiBaseUrl = String.fromEnvironment(
     'MPORT_API_URL',
     defaultValue: '',
@@ -20,23 +18,21 @@ class AppConfig {
     defaultValue: true,
   );
 
-  /// Google Gemini API key (build-time). Can also be set in-app under MPorT AI.
-  static const geminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: '',
-  );
-
-  /// Gemini model id (free-tier Flash).
+  /// AI credentials never belong in the APK. MPorT AI uses the server gateway.
   static const geminiModel = String.fromEnvironment(
     'GEMINI_MODEL',
-    defaultValue: 'gemini-2.5-flash',
+    defaultValue: 'gemini-3.5-flash',
   );
 
+  /// HTTP is opt-in per build. The browser still shows an explicit warning for HTTP.
   static const enableHttp = bool.fromEnvironment(
     'MPORT_ALLOW_HTTP',
-    defaultValue: true,
+    defaultValue: false,
   );
 
-  /// Preferred API version path segment.
   static const apiVersion = 'v1';
+
+  static bool isHttpAllowed(Uri uri) =>
+      uri.scheme.toLowerCase() == 'https' ||
+      (uri.scheme.toLowerCase() == 'http' && enableHttp);
 }

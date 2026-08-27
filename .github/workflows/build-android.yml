@@ -5,63 +5,175 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   MPORT_URL: ${{ vars.MPORT_URL }}
   MPORT_API_URL: ${{ vars.MPORT_API_URL }}
-  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  GEMINI_MODEL: ${{ vars.GEMINI_MODEL != '' && vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
 
 jobs:
   build-android:
+    name: Analyze · Test · Signed APK + AAB
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+    timeout-minutes: 30
 
-      - uses: actions/setup-java@v5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
+          cache: gradle
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter stable
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - run: flutter pub get
+      - name: Flutter version
+        run: flutter --version
 
-      - name: Ensure Android platform + toolchain
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Validate required HTTPS configuration
+        env:
+          MPORT_URL: ${{ vars.MPORT_URL }}
+          MPORT_API_URL: ${{ vars.MPORT_API_URL }}
         run: |
-          flutter create . --project-name browser --org id.mport --platforms=android
-          bash scripts/fix_android_toolchain.sh
-          flutter pub get
+          set -euo pipefail
+          for v in MPORT_URL MPORT_API_URL; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required repository variable: $v"
+              exit 1
+            fi
+          done
+          case "$MPORT_URL" in https://*) ;; *) echo "::error::MPORT_URL must use HTTPS"; exit 1;; esac
+          case "$MPORT_API_URL" in https://*) ;; *) echo "::error::MPORT_API_URL must use HTTPS"; exit 1;; esac
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Verify lockfile
+        run: test -f pubspec.lock
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Build APK
+      - name: Test
+        run: flutter test --coverage
+
+      - name: Require release signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          set -euo pipefail
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+          KEYSTORE_FILE="$RUNNER_TEMP/mport-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+
+          cat > android/key.properties <<EOF2
+storePassword=$KEYSTORE_PASSWORD
+keyPassword=$KEY_PASSWORD
+keyAlias=$KEY_ALIAS
+storeFile=$KEYSTORE_FILE
+EOF2
+          chmod 600 android/key.properties
+
+          keytool -list -v \
+            -keystore "$KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" > /tmp/keytool.txt
+          grep -q "Alias name: $KEY_ALIAS" /tmp/keytool.txt
+          grep -q "SHA256:" /tmp/keytool.txt
+
+      - name: Build signed APK
+        env:
+          MPORT_URL: ${{ vars.MPORT_URL }}
+          MPORT_API_URL: ${{ vars.MPORT_API_URL }}
+        run: |
+          set -euo pipefail
           flutter build apk --release --tree-shake-icons \
-            --dart-define=MPORT_URL=${{ env.MPORT_URL }} \
-            --dart-define=MPORT_API_URL=${{ env.MPORT_API_URL }} \
+            --dart-define=MPORT_URL="$MPORT_URL" \
+            --dart-define=MPORT_API_URL="$MPORT_API_URL" \
             --dart-define=MPORT_AI=true \
-            --dart-define=GEMINI_API_KEY=${{ env.GEMINI_API_KEY }} \
-            --dart-define=GEMINI_MODEL=${{ env.GEMINI_MODEL }}
+            --dart-define=MPORT_ALLOW_HTTP=false
 
-      - name: Build App Bundle
+      - name: Build signed AAB
+        env:
+          MPORT_URL: ${{ vars.MPORT_URL }}
+          MPORT_API_URL: ${{ vars.MPORT_API_URL }}
         run: |
+          set -euo pipefail
           flutter build appbundle --release --tree-shake-icons \
-            --dart-define=MPORT_URL=${{ env.MPORT_URL }} \
-            --dart-define=MPORT_API_URL=${{ env.MPORT_API_URL }} \
+            --dart-define=MPORT_URL="$MPORT_URL" \
+            --dart-define=MPORT_API_URL="$MPORT_API_URL" \
             --dart-define=MPORT_AI=true \
-            --dart-define=GEMINI_API_KEY=${{ env.GEMINI_API_KEY }} \
-            --dart-define=GEMINI_MODEL=${{ env.GEMINI_MODEL }}
+            --dart-define=MPORT_ALLOW_HTTP=false
 
-      - uses: actions/upload-artifact@v4
+      - name: Verify APK signature
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          KEYSTORE_FILE="$RUNNER_TEMP/mport-release.jks"
+          test -f "$APK"
+          test -f "$KEYSTORE_FILE"
+
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          test -n "$APKSIGNER"
+
+          "$APKSIGNER" verify --verbose "$APK"
+          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/apk-certs.txt
+          keytool -list -v -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | tee /tmp/key-certs.txt
+
+          ACTUAL=$(grep 'Signer #1 certificate SHA-256 digest:' /tmp/apk-certs.txt | sed 's/.*: //' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          EXPECTED=$(grep 'SHA256:' /tmp/key-certs.txt | sed 's/.*SHA256: //' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          test -n "$ACTUAL"
+          test -n "$EXPECTED"
+          test "$ACTUAL" = "$EXPECTED"
+          echo "APK signature verified successfully."
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: MPorT-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
         with:
           name: MPorT-Android-AAB
           path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: MPorT-Android-Coverage
+          path: coverage/lcov.info
+          if-no-files-found: warn
+
+      - name: Cleanup signing material
+        if: always()
+        run: |
+          rm -f android/key.properties
+          rm -f "$RUNNER_TEMP/mport-release.jks"

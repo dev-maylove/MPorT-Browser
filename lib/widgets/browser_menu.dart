@@ -69,7 +69,7 @@ class _MenuPanelState extends State<_MenuPanel> {
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    final panelW = (w * 0.82).clamp(300.0, 340.0);
+    final panelW = (w * 0.82).clamp(300.0, 340.0).toDouble();
     final maxH = MediaQuery.sizeOf(context).height * 0.94;
 
     return Material(

@@ -89,12 +89,30 @@ class TabManager {
   }
 
   void closePrivate() {
-    tabs.removeWhere((x) => x.private);
     if (tabs.isEmpty) {
       create(initialUrl: 'about:blank');
+      return;
     }
-    if (activeIndex >= tabs.length) {
-      activeIndex = tabs.length - 1;
+
+    final oldActive = activeIndex;
+    final activeCutoff = oldActive.clamp(0, tabs.length).toInt();
+    final removedBeforeActive = tabs
+        .take(activeCutoff)
+        .where((tab) => tab.private)
+        .length;
+
+    tabs.removeWhere((tab) => tab.private);
+
+    if (tabs.isEmpty) {
+      activeIndex = 0;
+      create(initialUrl: 'about:blank');
+      return;
     }
+
+    // Preserve the same logical active tab when private tabs before it are
+    // removed; clamp when the old active tab itself was private.
+    activeIndex = (oldActive - removedBeforeActive)
+        .clamp(0, tabs.length - 1)
+        .toInt();
   }
 }

@@ -132,23 +132,19 @@ MPorT memakai **Android System WebView berbasis Chromium** lewat `webview_flutte
 - CEF (`webview_cef`) hanya untuk **desktop** (Windows/macOS/Linux)
 - Ekstensi Chrome (`.crx` / Add to Chrome) **tidak didukung** di WebView Android
 
-## MPorT AI (Gemini — gratis)
+## MPorT AI — secure gateway
 
-MPorT AI memakai **Google Gemini free tier** saja (provider berbayar dihapus).
+MPorT Browser **tidak menyimpan atau mengirim Gemini API key dari APK**. Client hanya memanggil MPorT AI Gateway melalui `MPORT_API_URL`. Gateway server bertanggung jawab atas provider key, model routing, quota, retry, dan fallback.
 
-1. Buat key gratis: https://aistudio.google.com/apikey
-2. Di app: **MPorT AI → ikon key** → tempel API key
-3. Atau build-time:
+Contoh build:
 
 ```bash
 flutter build apk --release \
-  --dart-define=GEMINI_API_KEY=YOUR_KEY \
-  --dart-define=GEMINI_MODEL=gemini-3.7-flash
+  --dart-define=MPORT_API_URL=https://your-domain.example/api \
+  --dart-define=MPORT_AI=true \
+  --dart-define=MPORT_ALLOW_HTTP=false
 ```
 
-Model default: `gemini-3.7-flash` (stable, free tier).
+Endpoint utama yang diharapkan client: `POST /api/v1/ai/chat` dengan body `message`, `history`, dan optional `page_context`.
 
-GitHub Actions: tambahkan repository **Secret** `GEMINI_API_KEY` (dan optional Variable `GEMINI_MODEL`).
-
-Fallback: jika `MPORT_API_URL` di-set, Laravel `/api/v1/ai/chat` dipakai saat Gemini gagal atau belum ada key.
-
+**Jangan** menambahkan `GEMINI_API_KEY` ke `--dart-define`, GitHub Actions, atau source aplikasi. Simpan provider key hanya di server.

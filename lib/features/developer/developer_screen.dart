@@ -38,7 +38,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     _tabs = TabController(
       length: 6,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 5),
+      initialIndex: widget.initialTab.clamp(0, 5).toInt(),
     );
     _tabs.addListener(() {
       if (_tabs.index == 0) _refreshElements();

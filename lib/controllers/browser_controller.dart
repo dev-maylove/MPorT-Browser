@@ -12,6 +12,7 @@ import '../security/permission_manager.dart';
 import '../security/tracker_blocker.dart';
 import '../services/storage_service.dart';
 import '../services/search_service.dart';
+import '../core/platform/native_bridge.dart';
 
 class BrowserController extends ChangeNotifier {
   final tabs = TabManager();
@@ -58,17 +59,42 @@ class BrowserController extends ChangeNotifier {
     if (initialized) return;
     await search.load();
     UrlUtils.searchService = search;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      NativeBridge.setWebEventListener(_handleNativeWebEvent);
+    }
 
-    final tab = tabs.create(initialUrl: AppConfig.webBaseUrl);
-    _attach(tab);
-    if (!kIsWeb) {
-      try {
-        await tab.controller.loadRequest(Uri.parse(AppConfig.webBaseUrl));
-      } catch (_) {}
+    await storage.migrateSensitiveData();
+    await permissions.load();
+    final savedTabs = await storage.sessionTabs();
+    if (savedTabs.isEmpty) {
+      final tab = tabs.create(initialUrl: AppConfig.webBaseUrl);
+      await _attach(tab);
+      if (!kIsWeb) {
+        try {
+          await tab.controller.loadRequest(Uri.parse(AppConfig.webBaseUrl));
+        } catch (_) {
+          tab.loading = false;
+          tab.progress = 0;
+          tab.title = 'Unable to load page';
+          tab.notify();
+        }
+      } else {
+        tab.url = AppConfig.webBaseUrl;
+        tab.loading = false;
+        tab.progress = 100;
+      }
     } else {
-      tab.url = AppConfig.webBaseUrl;
-      tab.loading = false;
-      tab.progress = 100;
+      for (final saved in savedTabs.take(12)) {
+        final url = '${saved['url']}';
+        final tab = tabs.create(initialUrl: url, private: false);
+        tab.title = '${saved['title'] ?? 'New Tab'}';
+        await _attach(tab);
+        if (!kIsWeb) {
+          try { await tab.controller.loadRequest(Uri.parse(url)); } catch (_) {}
+        }
+      }
+      final savedIndex = await storage.sessionActiveIndex();
+      tabs.select(savedIndex);
     }
     initialized = true;
     _notify();
@@ -79,13 +105,59 @@ class BrowserController extends ChangeNotifier {
     _notify();
   }
 
-  void _attach(BrowserTab tab) {
+  Future<void> _attach(BrowserTab tab) async {
     if (kIsWeb) return;
 
     final controller = tab.controller;
     // ignore: discarded_futures
     _applyUserAgent(controller);
     _configureAndroidWebView(controller);
+
+    if (controller.platform is AndroidWebViewController) {
+      final android = controller.platform as AndroidWebViewController;
+      android.setOnPlatformPermissionRequest((request) async {
+        final host = Uri.tryParse(tab.url)?.host.toLowerCase() ?? '';
+        var allow = true;
+        final resources = request.types;
+        if (resources.contains(WebViewPermissionResourceType.camera)) {
+          final state = permissions.state(host, PermissionType.camera);
+          if (state == PermissionState.deny) allow = false;
+          if (state != PermissionState.deny && !(await permissions.requestNative(PermissionType.camera))) allow = false;
+        }
+        if (resources.contains(WebViewPermissionResourceType.microphone)) {
+          final state = permissions.state(host, PermissionType.microphone);
+          if (state == PermissionState.deny) allow = false;
+          if (state != PermissionState.deny && !(await permissions.requestNative(PermissionType.microphone))) allow = false;
+        }
+        if (allow) { await request.grant(); } else { await request.deny(); }
+      });
+      await android.setGeolocationPermissionsPromptCallbacks(
+        onShowPrompt: (request) async {
+          final host = Uri.tryParse(request.origin)?.host.toLowerCase() ?? '';
+          final state = permissions.state(host, PermissionType.location);
+          if (state == PermissionState.deny) return const GeolocationPermissionsResponse(allow: false, retain: false);
+          final granted = await permissions.requestNative(PermissionType.location);
+          return GeolocationPermissionsResponse(allow: granted, retain: granted);
+        },
+      );
+      try { await android.setMixedContentMode(MixedContentMode.neverAllow); } catch (_) {}
+      try { await android.setWebAuthenticationSupport(WebAuthenticationSupport.forBrowser); } catch (_) {}
+
+      final id = android.webViewIdentifier;
+      if (tab.private) {
+        await NativeBridge.configurePrivateWebView(id);
+      }
+      await NativeBridge.installResourceBlocker(
+        identifier: id,
+        tabId: tab.id,
+        allowHttp: AppConfig.enableHttp,
+      );
+      // The native WebViewClient now owns Android page/resource events so that
+      // shouldInterceptRequest can run without replacing it from Dart.
+      return;
+    }
+
+    // iOS / other native platforms retain the plugin navigation delegate.
     controller.setNavigationDelegate(
       NavigationDelegate(
         onProgress: (value) {
@@ -100,50 +172,94 @@ class BrowserController extends ChangeNotifier {
           _notify();
         },
         onPageFinished: (url) async {
-          tab.loading = false;
-          tab.url = url;
-          // ignore: discarded_futures
-          applyDesktopViewport(controller);
-          try {
-            tab.canBack = await controller.canGoBack();
-            tab.canForward = await controller.canGoForward();
-          } catch (_) {}
-
-          try {
-            final title = await controller.getTitle();
-            if (title != null && title.trim().isNotEmpty) {
-              tab.title = title.trim();
-            }
-          } catch (_) {}
-
-          if (!tab.private && url.isNotEmpty && url != 'about:blank') {
-            storage.addHistory(
-              HistoryEntry(
-                url: url,
-                title: tab.title,
-                visitedAt: DateTime.now(),
-              ),
-            );
-          }
-
-          tab.notify();
-          _notify();
+          await _handlePageFinished(tab, url);
         },
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
-          if (uri != null && blocker.shouldBlock(uri)) {
-            return NavigationDecision.prevent;
-          }
+          if (uri != null && blocker.shouldBlock(uri)) return NavigationDecision.prevent;
+          if (uri != null && uri.scheme.toLowerCase() == 'http' && !AppConfig.enableHttp) return NavigationDecision.prevent;
           return NavigationDecision.navigate;
         },
       ),
     );
   }
 
+  Future<void> _handlePageFinished(BrowserTab tab, String url, {String? nativeTitle, bool? nativeCanBack, bool? nativeCanForward}) async {
+    tab.loading = false;
+    tab.progress = 100;
+    tab.url = url;
+    applyDesktopViewport(tab.controller);
+    try {
+      tab.canBack = nativeCanBack ?? await tab.controller.canGoBack();
+      tab.canForward = nativeCanForward ?? await tab.controller.canGoForward();
+    } catch (_) {}
+
+    try {
+      final title = nativeTitle ?? await tab.controller.getTitle();
+      if (title != null && title.trim().isNotEmpty) tab.title = title.trim();
+    } catch (_) {}
+
+    if (!tab.private && url.isNotEmpty && url != 'about:blank') {
+      await storage.addHistory(HistoryEntry(url: url, title: tab.title, visitedAt: DateTime.now(), private: tab.private));
+    }
+    tab.notify();
+    await _saveSession();
+    _notify();
+  }
+
+  void _handleNativeWebEvent(String event, Map<String, dynamic> data) {
+    final id = data['tabId']?.toString();
+    if (id == null || id.isEmpty) return;
+    BrowserTab? tab;
+    for (final candidate in tabs.tabs) {
+      if (candidate.id == id) { tab = candidate; break; }
+    }
+    if (tab == null) return;
+
+    switch (event) {
+      case 'pageStarted':
+        tab.loading = true;
+        tab.progress = 0;
+        tab.url = data['url']?.toString() ?? tab.url;
+        tab.notify();
+        _notify();
+        break;
+      case 'pageFinished':
+        // ignore: discarded_futures
+        _handlePageFinished(
+          tab,
+          data['url']?.toString() ?? tab.url,
+          nativeTitle: data['title']?.toString(),
+          nativeCanBack: data['canGoBack'] == true,
+          nativeCanForward: data['canGoForward'] == true,
+        );
+        break;
+      case 'pageError':
+        tab.loading = false;
+        tab.progress = 0;
+        tab.notify();
+        _notify();
+        break;
+      case 'navigationBlocked':
+        // Keep the current document intact; the native layer cancelled the navigation.
+        break;
+      case 'resourceBlocked':
+        // Resource-level filtering is intentionally silent to the user.
+        break;
+    }
+  }
+
+  Future<void> _saveSession() async {
+    await storage.saveSession(
+      tabs.tabs.map((t) => <String, dynamic>{'url': t.url, 'title': t.title, 'private': t.private}).toList(),
+      tabs.activeIndex,
+    );
+  }
+
   Future<void> open(String value, {bool private = false}) async {
     final url = UrlUtils.normalize(value);
     final tab = tabs.create(initialUrl: url, private: private);
-    _attach(tab);
+    await _attach(tab);
     if (kIsWeb) {
       tab.url = url;
       tab.loading = false;
@@ -153,17 +269,16 @@ class BrowserController extends ChangeNotifier {
     } else {
       try {
         await tab.controller.loadRequest(Uri.parse(url));
-      } catch (_) {}
+      } catch (_) {
+        tab.loading = false;
+        tab.progress = 0;
+        tab.title = 'Unable to load page';
+        tab.notify();
+      }
     }
-    if (!private && url != 'about:blank') {
-      storage.addHistory(
-        HistoryEntry(
-          url: url,
-          title: tab.title,
-          visitedAt: DateTime.now(),
-        ),
-      );
-    }
+    // History is recorded once from NavigationDelegate.onPageFinished, after
+    // the final URL/title are known.
+    await _saveSession();
     _notify();
   }
 
@@ -201,7 +316,12 @@ class BrowserController extends ChangeNotifier {
     if (!kIsWeb) {
       try {
         await tab.controller.loadRequest(Uri.parse(url));
-      } catch (_) {}
+      } catch (_) {
+        tab.loading = false;
+        tab.progress = 0;
+        tab.title = 'Unable to load page';
+        tab.notify();
+      }
     } else {
       tab.loading = false;
       tab.progress = 100;
@@ -396,11 +516,13 @@ class BrowserController extends ChangeNotifier {
 
   void selectTab(int index) {
     tabs.select(index);
+    _saveSession();
     _notify();
   }
 
   void closeTab(int index) {
     tabs.close(index);
+    _saveSession();
     _notify();
   }
 

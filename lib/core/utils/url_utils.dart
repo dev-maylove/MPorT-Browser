@@ -1,4 +1,5 @@
 import '../../models/search_engine.dart';
+import '../config/app_config.dart';
 import '../../services/search_service.dart';
 
 class UrlUtils {
@@ -52,8 +53,9 @@ class UrlUtils {
 
     if (isUrl(input)) {
       final uri = Uri.tryParse(input);
-      if (uri != null && uri.scheme.isEmpty) {
-        return 'https://$input';
+      if (uri != null && uri.scheme.isEmpty) return 'https://$input';
+      if (uri != null && uri.scheme.toLowerCase() == 'http' && !AppConfig.enableHttp) {
+        return uri.replace(scheme: 'https').toString();
       }
       return input;
     }

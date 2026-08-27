@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Ensure Android platform only
 set -euo pipefail
-cd "$(dirname "$0")/.."
 
-flutter create . --project-name browser --org id.mport --platforms=android
-bash scripts/fix_android_toolchain.sh
-flutter pub get
-echo "Android platform ready."
+# Non-destructive validation. Never run `flutter create .` over an existing project.
+[[ -f pubspec.yaml ]] || { echo 'pubspec.yaml not found'; exit 1; }
+[[ -d android ]] || { echo 'android directory not found'; exit 1; }
+[[ -f android/app/build.gradle ]] || { echo 'android/app/build.gradle not found'; exit 1; }
+echo 'MPorT Android platform is already present; no files were regenerated.'
