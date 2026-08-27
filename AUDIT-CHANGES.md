@@ -66,3 +66,11 @@ Android documents that `shouldInterceptRequest` is not called for `javascript:`,
 - Fixed TrackerBlocker host-specific path matching for subdomains (e.g. www.facebook.com/tr).
 - Fixed native Android ResourceBlocker to recognize host-specific tracking endpoints such as facebook.com/tr on subresources.
 - Existing normal facebook.com navigation remains allowed.
+
+## CI build repair (2026-08-28)
+
+- Fixed the CI release-build failure `Your app is using an unsupported Gradle project`.
+- Aligned Android Gradle Plugin with the Flutter 3.47 verified AGP 9.1.x line (9.1.0).
+- Removed the explicit `org.jetbrains.kotlin.android` plugin declaration and `kotlin.version` override because the project uses AGP 9 built-in Kotlin (`android.builtInKotlin=true`).
+- Kept Java 17 and Gradle 9.3.1, matching the Flutter 3.47 Android toolchain matrix.
+- No Dart application logic, assets, signing behavior, or security settings were changed by this repair.

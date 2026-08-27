@@ -96,8 +96,8 @@ adb install -r app-release.apk
 
 | Component | Version |
 |-----------|---------|
-| **AGP** | 9.1.1 |
-| **Kotlin** | 2.2.20 + builtInKotlin=true |
+| **AGP** | 9.1.0 |
+| **Kotlin** | Built-in Kotlin (AGP 9) |
 | **Gradle** | 9.3.1 |
 | **Java** | 17 |
 | **minSdk** | 24 |

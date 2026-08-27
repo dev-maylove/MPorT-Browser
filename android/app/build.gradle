@@ -1,6 +1,20 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+plugins {
+    id "com.android.application"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "id.mport.browser"
-    compileSdk 37
+    compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -30,14 +44,25 @@ android {
     buildTypes {
         release {
             if (!keystorePropertiesFile.exists()) {
-                throw new GradleException(
-                    "Release signing is required. Missing android/key.properties."
-                )
+                throw new GradleException("Release signing is required. Missing android/key.properties.")
             }
-
             signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
         }
     }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    // No androidx.browser — Custom Tabs replaced with plain Chrome/VIEW intents
 }
