@@ -158,13 +158,14 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     final code = _consoleInput.text.trim();
     if (code.isEmpty) return;
     _log('input', code);
-    if (c == null || kIsWeb) {
+    final browserController = c;
+    if (browserController == null || kIsWeb) {
       _log('error', 'JavaScript evaluation requires an active native WebView');
       return;
     }
     try {
-      final result =
-          await c.tabs.active.controller.runJavaScriptReturningResult(code);
+      final result = await browserController.tabs.active.controller
+          .runJavaScriptReturningResult(code);
       _log('result', result.toString());
     } catch (e) {
       _log('error', e.toString());
