@@ -20,6 +20,7 @@ import '../features/ai/ai_screen.dart';
 import '../features/home/new_tab_screen.dart';
 import '../features/browser/browser_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/platform/native_bridge.dart';
 
 /// Hamburger menu — visual match to MPorT design (right glass panel).
 class BrowserMenu {
@@ -353,30 +354,19 @@ class _MenuPanelState extends State<_MenuPanel> {
 
   Future<void> _openDefaultBrowserSettings() async {
     _close();
-    // Try system default-apps settings, then app details as fallback.
-    final candidates = <Uri>[
-      Uri.parse('intent:#Intent;action=android.settings.MANAGE_DEFAULT_APPS_SETTINGS;end'),
-      Uri.parse('intent:#Intent;action=android.settings.MANAGE_DEFAULT_APPS_SETTINGS;category=android.intent.category.DEFAULT;end'),
-      Uri.parse('android-app://com.android.settings'),
-    ];
-    var opened = false;
-    for (final uri in candidates) {
-      try {
-        if (await canLaunchUrl(uri)) {
-          opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-          if (opened) break;
-        }
-      } catch (_) {}
-    }
-    if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Buka Settings → Apps → Default apps → Browser app, lalu pilih MPorT Browser',
+    final ok = await NativeBridge.openDefaultBrowserSettings();
+    if (!ok && mounted) {
+      await NativeBridge.openAppDetailsSettings();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Buka Settings → Aplikasi default → Aplikasi browser, lalu pilih MPorT Browser',
+            ),
+            duration: Duration(seconds: 5),
           ),
-          duration: Duration(seconds: 5),
-        ),
-      );
+        );
+      }
     }
   }
 

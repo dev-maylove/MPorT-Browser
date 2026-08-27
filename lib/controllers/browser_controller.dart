@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../browser/tab_manager.dart';
 import '../core/config/app_config.dart';
 import '../core/utils/url_utils.dart';
@@ -85,6 +86,7 @@ class BrowserController extends ChangeNotifier {
     final controller = tab.controller;
     // ignore: discarded_futures
     _applyUserAgent(controller);
+    _configureAndroidWebView(controller);
     controller.setNavigationDelegate(
       NavigationDelegate(
         onProgress: (value) {
@@ -422,6 +424,20 @@ class BrowserController extends ChangeNotifier {
   void closePrivateTabs() {
     tabs.closePrivate();
     _notify();
+  }
+
+
+  /// Native Android System WebView tuning (media, DOM storage, mixed content).
+  void _configureAndroidWebView(WebViewController controller) {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final platform = controller.platform;
+      if (platform is AndroidWebViewController) {
+        platform.setMediaPlaybackRequiresUserGesture(false);
+        AndroidWebViewController.enableDebugging(false);
+      }
+    } catch (_) {}
   }
 
   String _titleFromUrl(String url) {

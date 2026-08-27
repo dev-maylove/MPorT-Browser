@@ -13,12 +13,12 @@ class TabManager {
     required String initialUrl,
     bool private = false,
   }) {
-    // On web, WebViewController is a lightweight placeholder (iframe used instead).
     final controller = WebViewController();
     if (!kIsWeb) {
       controller
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(const Color(0xFF06080F));
+        ..setBackgroundColor(const Color(0xFF06080F))
+        ..enableZoom(true);
     }
 
     final tab = BrowserTab(
@@ -60,6 +60,8 @@ class TabManager {
       only.canBack = false;
       only.canForward = false;
       only.private = false;
+      only.groupId = null;
+      only.groupName = null;
       only.notify();
       if (!kIsWeb) {
         try {

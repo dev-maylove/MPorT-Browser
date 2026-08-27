@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'controllers/browser_controller.dart';
 import 'features/home/new_tab_screen.dart';
+import 'features/browser/browser_screen.dart';
+import 'core/platform/native_bridge.dart';
+import 'package:flutter/foundation.dart';
 
 class MporTBrowserApp extends StatefulWidget {
   const MporTBrowserApp({super.key});
@@ -22,7 +25,40 @@ class _MporTBrowserAppState extends State<MporTBrowserApp> {
     controller = BrowserController();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.initialize();
-      if (mounted) setState(() => _ready = true);
+      String? deepLink;
+      if (!kIsWeb) {
+        NativeBridge.setOpenUrlListener((url) async {
+          await controller.open(url);
+          if (!mounted) return;
+          // Ignore if navigator not ready yet
+          final nav = Navigator.maybeOf(context);
+          if (nav != null) {
+            nav.pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => BrowserScreen(controller: controller),
+              ),
+              (route) => false,
+            );
+          }
+        });
+        deepLink = await NativeBridge.getInitialUrl();
+        if (deepLink != null && deepLink.isNotEmpty) {
+          await controller.open(deepLink);
+        }
+      }
+      if (mounted) {
+        setState(() => _ready = true);
+        if (deepLink != null && deepLink.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => BrowserScreen(controller: controller),
+              ),
+            );
+          });
+        }
+      }
     });
   }
 
