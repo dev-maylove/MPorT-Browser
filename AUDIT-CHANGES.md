@@ -60,3 +60,9 @@ Android documents that `shouldInterceptRequest` is not called for `javascript:`,
 - APK/AAB builds require release signing secrets and never fall back to debug signing.
 - APK signing certificate is compared with the configured release keystore.
 - Signing material is deleted in an `always()` cleanup step.
+
+
+## Latest CI repair
+- Fixed TrackerBlocker host-specific path matching for subdomains (e.g. www.facebook.com/tr).
+- Fixed native Android ResourceBlocker to recognize host-specific tracking endpoints such as facebook.com/tr on subresources.
+- Existing normal facebook.com navigation remains allowed.

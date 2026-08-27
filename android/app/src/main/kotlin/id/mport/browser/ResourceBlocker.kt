@@ -21,6 +21,12 @@ object ResourceBlocker {
         "bluekai.com", "krxd.net", "mathtag.com", "eyeota.net", "tapad.com"
     )
 
+    // Host-specific tracking endpoints. Host matching includes subdomains.
+    private val blockedHostPaths = mapOf(
+        "facebook.com" to listOf("/tr", "/ajax/"),
+        "www.facebook.com" to listOf("/tr"),
+    )
+
     private val blockedPathTokens = listOf(
         "/pagead/", "/ads/", "/adserver/", "/advertising/", "/analytics/",
         "/tracking/", "/track/", "/pixel", "/beacon", "/collect"
@@ -36,7 +42,16 @@ object ResourceBlocker {
         val query = (uri.query ?: "").lowercase(Locale.US)
 
         if (blockedHosts.any { host == it || host.endsWith(".$it") }) return true
-        if (!mainFrame && blockedPathTokens.any { path.contains(it) }) return true
+
+        if (!mainFrame) {
+            for ((blockedHost, paths) in blockedHostPaths) {
+                val hostMatches = host == blockedHost || host.endsWith(".$blockedHost")
+                if (hostMatches && paths.any { path == it || path.startsWith("$it/") }) {
+                    return true
+                }
+            }
+            if (blockedPathTokens.any { path.contains(it) }) return true
+        }
 
         // Common tracking query parameters. Keep this conservative to reduce breakage.
         val trackingKeys = listOf("gclid", "dclid", "fbclid", "msclkid", "mc_cid", "mc_eid")

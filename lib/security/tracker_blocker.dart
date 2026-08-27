@@ -19,7 +19,10 @@ class TrackerBlocker {
     return blockedHosts.any((blocked) {
       if (blocked.contains('/')) {
         final parts = blocked.split('/');
-        return host == parts.first && path.startsWith('/${parts.skip(1).join('/')}');
+        final blockedHost = parts.first;
+        final blockedPath = '/${parts.skip(1).join('/')}';
+        final hostMatches = host == blockedHost || host.endsWith('.$blockedHost');
+        return hostMatches && (path == blockedPath || path.startsWith('$blockedPath/'));
       }
       return host == blocked || host.endsWith('.$blocked');
     });
