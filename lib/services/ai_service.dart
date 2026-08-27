@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/config/app_config.dart';
@@ -10,22 +11,20 @@ class AiService {
   static const _geminiKeyStorage = 'gemini_api_key';
   static const _geminiModelStorage = 'gemini_model';
 
-  /// Free-tier Flash models (order = prefer faster/cheaper first after preferred).
+  /// Reliable free-tier models first (simple chat, low latency).
   static const _fallbackModels = [
-    'gemini-3.7-flash',
-    'gemini-3.6-flash',
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-3.7-flash',
   ];
 
   static const _systemPrompt =
-      'You are MPorT AI, the intelligent assistant built into MPorT Browser '
-      'for the MandalaNet ISP ecosystem. Be helpful, concise, and accurate. '
-      'You can help with browsing, summarizing pages, translating, privacy tips, '
-      'and general questions. Reply in the same language the user writes in '
-      'unless they ask otherwise.';
+      'You are MPorT AI, the intelligent assistant in MPorT Browser '
+      'for MandalaNet ISP. Be helpful, concise, and accurate. '
+      'Reply in the same language the user writes in.';
 
   Future<String?> resolveGeminiKey() async {
     final saved = await _storage.getString(_geminiKeyStorage);
@@ -35,22 +34,24 @@ class AiService {
   }
 
   Future<void> saveGeminiKey(String key) async {
-    final k = key.trim();
-    await _storage.setString(_geminiKeyStorage, k);
+    await _storage.setString(_geminiKeyStorage, key.trim());
   }
 
   Future<String> resolveModel() async {
     final saved = await _storage.getString(_geminiModelStorage);
     if (saved != null && saved.trim().isNotEmpty) {
       final m = saved.trim();
-      const shutdown = {
+      // Prefer stable free Flash on mobile; 3.7 often aborts on weak networks.
+      const migrate = {
         'gemini-2.0-flash',
         'gemini-2.0-flash-lite',
         'gemini-1.5-flash',
         'gemini-1.5-pro',
         'gemini-pro',
+        'gemini-3.7-flash',
+        'gemini-3.6-flash',
       };
-      if (shutdown.contains(m)) {
+      if (migrate.contains(m)) {
         await _storage.setString(_geminiModelStorage, AppConfig.geminiModel);
         return AppConfig.geminiModel;
       }
@@ -81,6 +82,11 @@ class AiService {
           history: history,
           apiKey: geminiKey,
           pageContext: pageContext,
+        ).timeout(
+          const Duration(seconds: 35),
+          onTimeout: () => throw TimeoutException(
+            'Timeout: koneksi lambat atau Gemini tidak merespons. Coba lagi.',
+          ),
         );
       } catch (e) {
         if (AppConfig.apiBaseUrl.isEmpty) rethrow;
@@ -94,7 +100,7 @@ class AiService {
     return 'MPorT AI butuh Gemini API key (gratis).\n\n'
         '1. Buka https://aistudio.google.com/apikey\n'
         '2. Buat key → salin\n'
-        '3. Di MPorT AI tekan ikon pengaturan (pojok kanan) → tempel key → Simpan\n\n'
+        '3. Tekan lama judul "MPorT AI" → tempel key → Simpan\n\n'
         'Atau build dengan --dart-define=GEMINI_API_KEY=your_key';
   }
 
@@ -105,6 +111,7 @@ class AiService {
     String? pageContext,
   }) async {
     final preferred = await resolveModel();
+    // Prefer fast free models; put preferred first but de-prioritize heavy 3.7 if it stalls
     final models = <String>[
       preferred,
       ..._fallbackModels.where((m) => m != preferred),
@@ -114,7 +121,8 @@ class AiService {
 
     for (var modelIndex = 0; modelIndex < models.length; modelIndex++) {
       final model = models[modelIndex];
-      final maxAttempts = modelIndex == 0 ? 3 : 2;
+      // 2 attempts max on preferred, 1 on fallbacks — avoid endless spinner
+      final maxAttempts = modelIndex == 0 ? 2 : 1;
 
       for (var attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
@@ -144,38 +152,65 @@ class AiService {
               msg.contains('is not supported') ||
               msg.contains('404');
 
+          final isTimeout = msg.contains('timeout') ||
+              msg.contains('timed out') ||
+              e is TimeoutException;
+
+          final isNet = msg.contains('connection abort') ||
+              msg.contains('connection closed') ||
+              msg.contains('connection reset') ||
+              msg.contains('failed host lookup') ||
+              msg.contains('network is unreachable') ||
+              msg.contains('socket') ||
+              msg.contains('clientexception') ||
+              msg.contains('software caused connection');
+
           if (isNotFound) break;
 
-          if (isOverload && attempt < maxAttempts) {
-            await Future<void>.delayed(
-              Duration(milliseconds: 700 * attempt * attempt),
-            );
+          // Network blip → short wait then retry same model once
+          if ((isOverload || isTimeout || isNet) && attempt < maxAttempts) {
+            await Future<void>.delayed(Duration(milliseconds: 600 * attempt));
             continue;
           }
-          if (isOverload) break;
+          // Then switch model
+          if (isOverload || isTimeout || isNet) {
+            // Persist stable model so next open doesn't stick on 3.7
+            try {
+              await _storage.setString(_geminiModelStorage, 'gemini-2.5-flash');
+            } catch (_) {}
+            break;
+          }
 
-          // Auth errors → stop
           if (msg.contains('api key') ||
+              msg.contains('api_key') ||
               msg.contains('permission') ||
               msg.contains('401') ||
-              msg.contains('403')) {
+              msg.contains('403') ||
+              msg.contains('invalid')) {
             rethrow;
           }
+
+          // Empty answer / parse → try next model
+          if (msg.contains('empty') || msg.contains('no answer')) break;
 
           rethrow;
         }
       }
     }
 
-    final hint = lastError != null ? '$lastError' : 'unknown error';
-    if (hint.toLowerCase().contains('high demand') ||
-        hint.toLowerCase().contains('overloaded') ||
-        hint.toLowerCase().contains('try again later')) {
+    final hint = lastError != null ? '$lastError' : 'unknown';
+    final low = hint.toLowerCase();
+    if (low.contains('connection abort') ||
+        low.contains('clientexception') ||
+        low.contains('socket') ||
+        low.contains('failed host lookup')) {
       throw Exception(
-        'Gemini sedang sibuk (high demand). Coba lagi beberapa detik.\n\n$hint',
+        'Koneksi ke Gemini terputus (connection abort).\n'
+        'Coba: Wi-Fi stabil, matikan VPN, atau ulangi sebentar lagi.\n'
+        'Model otomatis diganti ke gemini-2.5-flash.\n\n$hint',
       );
     }
-    throw lastError ?? Exception('Tidak ada jawaban dari Gemini');
+    throw Exception('Gagal mendapat jawaban dari Gemini.\n$hint');
   }
 
   Future<String> _chatGeminiOnce(
@@ -185,16 +220,18 @@ class AiService {
     required String model,
     String? pageContext,
   }) async {
-    // Prefer header auth (more reliable than query key on some clients)
+    // Query key = most compatible with Gemini REST API
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/'
-      '$model:generateContent',
+      '$model:generateContent?key=${Uri.encodeQueryComponent(apiKey)}',
     );
 
     final contents = <Map<String, dynamic>>[];
     for (final turn in history) {
       final role = (turn['role'] ?? 'user') == 'assistant' ? 'model' : 'user';
-      final text = turn['content'] ?? turn['message'] ?? '';
+      var text = turn['content'] ?? turn['message'] ?? '';
+      // Skip error bubbles in history
+      if (text.startsWith('⚠️')) continue;
       if (text.isEmpty) continue;
       contents.add({
         'role': role,
@@ -216,8 +253,16 @@ class AiService {
       ],
     });
 
-    // Ensure roles alternate starting with user (Gemini requirement)
     final normalized = _normalizeContents(contents);
+
+    final generationConfig = <String, dynamic>{
+      'temperature': 0.7,
+      'maxOutputTokens': 1024,
+    };
+    // Disable extended thinking so Flash models return text quickly
+    if (model.contains('3.')) {
+      generationConfig['thinkingConfig'] = {'thinkingBudget': 0};
+    }
 
     final body = {
       'systemInstruction': {
@@ -226,23 +271,24 @@ class AiService {
         ],
       },
       'contents': normalized,
-      'generationConfig': {
-        'temperature': 0.7,
-        'maxOutputTokens': 2048,
-      },
+      'generationConfig': generationConfig,
     };
 
-    final response = await http
-        .post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: jsonEncode(body),
-        )
-        .timeout(const Duration(seconds: 60));
+    late http.Response response;
+    try {
+      response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      throw TimeoutException('Timeout memanggil $model (20s)');
+    }
 
     if (response.body.isEmpty) {
       throw Exception('Empty response from Gemini (${response.statusCode})');
@@ -264,6 +310,7 @@ class AiService {
       final msg = err is Map
           ? (err['message'] ?? 'Gemini error ${response.statusCode}')
           : 'Gemini error ${response.statusCode}';
+      // If thinkingConfig rejected, retry once without it is handled by caller model fallback
       throw Exception('$msg [${response.statusCode}]');
     }
 
@@ -275,7 +322,22 @@ class AiService {
       throw Exception('Diblokir Gemini: ${block['blockReason']}');
     }
 
-    throw Exception('No answer from Gemini (empty candidates)');
+    final finish = _finishReason(decoded);
+    throw Exception(
+      'No answer from $model'
+      '${finish != null ? ' (finish: $finish)' : ''}',
+    );
+  }
+
+  String? _finishReason(Map<String, dynamic> decoded) {
+    final candidates = decoded['candidates'];
+    if (candidates is List && candidates.isNotEmpty) {
+      final first = candidates.first;
+      if (first is Map && first['finishReason'] != null) {
+        return '${first['finishReason']}';
+      }
+    }
+    return null;
   }
 
   List<Map<String, dynamic>> _normalizeContents(
@@ -298,7 +360,6 @@ class AiService {
       final parts = item['parts'];
       if (parts is! List || parts.isEmpty) continue;
       if (lastRole == role && out.isNotEmpty) {
-        // Merge consecutive same-role turns
         final prevParts = (out.last['parts'] as List).toList();
         prevParts.addAll(parts);
         out.last = {'role': role, 'parts': prevParts};
@@ -329,9 +390,13 @@ class AiService {
     if (parts is! List || parts.isEmpty) return null;
     final texts = <String>[];
     for (final part in parts) {
-      if (part is Map && part['text'] != null) {
-        final t = '${part['text']}'.trim();
-        if (t.isNotEmpty) texts.add(t);
+      if (part is! Map) continue;
+      // Skip pure thought parts if present
+      if (part['thought'] == true && part['text'] == null) continue;
+      final t = part['text'];
+      if (t != null) {
+        final s = '$t'.trim();
+        if (s.isNotEmpty) texts.add(s);
       }
     }
     if (texts.isEmpty) return null;
@@ -355,19 +420,21 @@ class AiService {
     Exception? lastError;
     for (final url in candidates) {
       try {
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            if (auth != null && auth.isNotEmpty)
-              'Authorization': 'Bearer $auth',
-          },
-          body: jsonEncode({
-            'message': message,
-            'history': history,
-          }),
-        );
+        final response = await http
+            .post(
+              Uri.parse(url),
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                if (auth != null && auth.isNotEmpty)
+                  'Authorization': 'Bearer $auth',
+              },
+              body: jsonEncode({
+                'message': message,
+                'history': history,
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
 
         if (response.statusCode == 404) continue;
         if (response.body.isEmpty) {

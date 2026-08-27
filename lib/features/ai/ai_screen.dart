@@ -136,7 +136,7 @@ class _AiScreenState extends State<AiScreen> {
                     style: const TextStyle(color: AppTheme.textPrimary),
                     decoration: const InputDecoration(
                       labelText: 'Model (opsional)',
-                      hintText: 'gemini-3.7-flash',
+                      hintText: 'gemini-2.5-flash',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -330,14 +330,27 @@ class _AiScreenState extends State<AiScreen> {
                     itemCount: messages.length + (loading ? 1 : 0),
                     itemBuilder: (_, i) {
                       if (loading && i == messages.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(12),
+                        return Padding(
+                          padding: const EdgeInsets.all(12),
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Menunggu Gemini…',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppTheme.textMuted,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );

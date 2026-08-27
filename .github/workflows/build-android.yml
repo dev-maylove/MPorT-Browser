@@ -9,7 +9,7 @@ env:
   MPORT_URL: ${{ vars.MPORT_URL }}
   MPORT_API_URL: ${{ vars.MPORT_API_URL }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  GEMINI_MODEL: ${{ vars.GEMINI_MODEL != '' && vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
+  GEMINI_MODEL: ${{ vars.GEMINI_MODEL != '' && vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
 
 jobs:
   build-android:
