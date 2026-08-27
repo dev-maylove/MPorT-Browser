@@ -91,24 +91,35 @@ class _BootSplash extends StatelessWidget {
               decoration: BoxDecoration(
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.cyanNeon.withValues(alpha: 0.28),
-                    blurRadius: 48,
-                    spreadRadius: 2,
+                    color: AppTheme.cyanNeon.withValues(alpha: 0.35),
+                    blurRadius: 56,
+                    spreadRadius: 4,
                   ),
                 ],
               ),
               child: Image.asset(
                 'assets/images/mport_logo.png',
-                width: 180,
-                height: 180,
+                width: 240,
+                height: 240,
+                fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const Icon(
                   Icons.public_rounded,
-                  size: 72,
+                  size: 96,
                   color: AppTheme.cyanNeon,
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+            Text(
+              'MPorT Browser',
+              style: GoogleFonts.orbitron(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 24),
             const SizedBox(
               width: 28,
               height: 28,
