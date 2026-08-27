@@ -1,6 +1,6 @@
 class AppConfig {
   static const appName = 'MPorT Browser';
-  static const version = '2.0.1';
+  static const version = '2.0.4';
   static const brandName = 'MandalaNet';
 
   /// Public web portal (New Tab default / home page inside WebView).
@@ -26,7 +26,7 @@ class AppConfig {
     defaultValue: '',
   );
 
-  /// Gemini model id.
+  /// Gemini model id (free-tier Flash).
   static const geminiModel = String.fromEnvironment(
     'GEMINI_MODEL',
     defaultValue: 'gemini-3.7-flash',

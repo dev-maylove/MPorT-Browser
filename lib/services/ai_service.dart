@@ -10,6 +10,23 @@ class AiService {
   static const _geminiKeyStorage = 'gemini_api_key';
   static const _geminiModelStorage = 'gemini_model';
 
+  /// Free-tier Gemini models to try when primary is overloaded.
+  static const _fallbackModels = [
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+  ];
+
+  static const _systemPrompt =
+      'You are MPorT AI, the intelligent assistant built into MPorT Browser '
+      'for the MandalaNet ISP ecosystem. Be helpful, concise, and accurate. '
+      'You can help with browsing, summarizing pages, translating, privacy tips, '
+      'and general questions. Reply in the same language the user writes in '
+      'unless they ask otherwise.';
+
   Future<String?> resolveGeminiKey() async {
     final saved = await _storage.getString(_geminiKeyStorage);
     if (saved != null && saved.trim().isNotEmpty) return saved.trim();
@@ -31,7 +48,7 @@ class AiService {
     await _storage.setString(_geminiModelStorage, model.trim());
   }
 
-  /// Chat with Gemini (primary) or Laravel MPorT API (fallback).
+  /// Chat with Gemini (primary, free tier) or Laravel MPorT API (fallback).
   Future<String> chat(
     String message, {
     List<Map<String, String>> history = const [],
@@ -45,14 +62,13 @@ class AiService {
     final geminiKey = await resolveGeminiKey();
     if (geminiKey != null && geminiKey.isNotEmpty) {
       try {
-        return await _chatGemini(
+        return await _chatGeminiWithRetry(
           message,
           history: history,
           apiKey: geminiKey,
           pageContext: pageContext,
         );
       } catch (e) {
-        // Fall through to Laravel if configured
         if (AppConfig.apiBaseUrl.isEmpty) {
           rethrow;
         }
@@ -63,19 +79,99 @@ class AiService {
       return _chatLaravel(message, history: history, token: token);
     }
 
-    return 'MPorT AI needs a Gemini API key.\n\n'
+    return 'MPorT AI needs a Gemini API key (free tier).\n\n'
         '1. Get a key at https://aistudio.google.com/apikey\n'
         '2. Open MPorT AI → settings (key icon) and paste the key\n'
         '   or build with --dart-define=GEMINI_API_KEY=your_key';
   }
 
-  Future<String> _chatGemini(
+  /// Retry + model fallback for high demand / rate limit / transient errors.
+  Future<String> _chatGeminiWithRetry(
     String message, {
     required List<Map<String, String>> history,
     required String apiKey,
     String? pageContext,
   }) async {
-    final model = await resolveModel();
+    final preferred = await resolveModel();
+    final models = <String>[
+      preferred,
+      ..._fallbackModels.where((m) => m != preferred),
+    ];
+
+    Exception? lastError;
+
+    for (var modelIndex = 0; modelIndex < models.length; modelIndex++) {
+      final model = models[modelIndex];
+      // More retries on preferred model; fewer on fallbacks.
+      final maxAttempts = modelIndex == 0 ? 3 : 2;
+
+      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          return await _chatGeminiOnce(
+            message,
+            history: history,
+            apiKey: apiKey,
+            model: model,
+            pageContext: pageContext,
+          );
+        } catch (e) {
+          lastError = e is Exception ? e : Exception('$e');
+          final msg = '$e'.toLowerCase();
+
+          final isOverload = msg.contains('high demand') ||
+              msg.contains('overloaded') ||
+              msg.contains('resource_exhausted') ||
+              msg.contains('unavailable') ||
+              msg.contains('try again later') ||
+              msg.contains('503') ||
+              msg.contains('429') ||
+              msg.contains('rate limit') ||
+              msg.contains('quota');
+
+          final isNotFound = msg.contains('not found') ||
+              msg.contains('no longer available') ||
+              msg.contains('is not supported') ||
+              msg.contains('404');
+
+          // Model gone → skip to next model immediately.
+          if (isNotFound) break;
+
+          // Overload / rate limit → wait then retry, or try next model.
+          if (isOverload && attempt < maxAttempts) {
+            final delayMs = 800 * attempt * attempt; // 800, 3200, …
+            await Future<void>.delayed(Duration(milliseconds: delayMs));
+            continue;
+          }
+
+          // Overload exhausted on this model → try next model.
+          if (isOverload) break;
+
+          // Other errors (auth, blocked, etc.) → don't spin on other models.
+          rethrow;
+        }
+      }
+    }
+
+    final hint = lastError != null ? '$lastError' : 'unknown error';
+    if (hint.toLowerCase().contains('high demand') ||
+        hint.toLowerCase().contains('overloaded') ||
+        hint.toLowerCase().contains('try again later')) {
+      throw Exception(
+        'Gemini sedang sibuk (high demand). '
+        'Sudah dicoba ulang & ganti model otomatis. '
+        'Coba lagi beberapa detik kemudian.\n\nDetail: $hint',
+      );
+    }
+    throw lastError ?? Exception('No answer from Gemini');
+  }
+
+  Future<String> _chatGeminiOnce(
+    String message, {
+    required List<Map<String, String>> history,
+    required String apiKey,
+    required String model,
+    String? pageContext,
+  }) async {
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/'
       '$model:generateContent?key=$apiKey',
@@ -109,14 +205,7 @@ class AiService {
     final body = {
       'systemInstruction': {
         'parts': [
-          {
-            'text':
-                'You are MPorT AI, the intelligent assistant built into MPorT Browser '
-                'for the MandalaNet ISP ecosystem. Be helpful, concise, and accurate. '
-                'You can help with browsing, summarizing pages, translating, privacy tips, '
-                'and general questions. Reply in the same language the user writes in '
-                'unless they ask otherwise.',
-          },
+          {'text': _systemPrompt},
         ],
       },
       'contents': contents,
@@ -126,14 +215,16 @@ class AiService {
       },
     };
 
-    final response = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 45));
 
     if (response.body.isEmpty) {
       throw Exception('Empty response from Gemini (${response.statusCode})');
@@ -143,7 +234,7 @@ class AiService {
     try {
       decoded = jsonDecode(response.body);
     } catch (_) {
-      throw Exception('Invalid JSON from Gemini');
+      throw Exception('Invalid JSON from Gemini (${response.statusCode})');
     }
 
     if (decoded is! Map<String, dynamic>) {
@@ -155,7 +246,8 @@ class AiService {
       final msg = err is Map
           ? (err['message'] ?? 'Gemini error ${response.statusCode}')
           : 'Gemini error ${response.statusCode}';
-      throw Exception('$msg');
+      // Preserve status code in message so retry logic can detect 429/503.
+      throw Exception('$msg [${response.statusCode}]');
     }
 
     final candidates = decoded['candidates'];

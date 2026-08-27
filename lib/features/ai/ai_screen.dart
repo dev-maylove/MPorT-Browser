@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
@@ -94,7 +93,7 @@ class _AiScreenState extends State<AiScreen> {
                       const Icon(Icons.vpn_key_rounded, color: AppTheme.cyanNeon),
                       const SizedBox(width: 10),
                       Text(
-                        'Gemini API Key',
+                        'Gemini API Key (gratis)',
                         style: GoogleFonts.orbitron(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
@@ -104,7 +103,8 @@ class _AiScreenState extends State<AiScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Get a free key at aistudio.google.com/apikey then paste it below.',
+                    'Ambil key gratis di aistudio.google.com/apikey, lalu tempel di bawah. '
+                    'Free tier cukup untuk pemakaian ringan.',
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
@@ -203,7 +203,7 @@ class _AiScreenState extends State<AiScreen> {
     if (!hasKey) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Set Gemini API key first'),
+          content: const Text('Set Gemini API key first (gratis)'),
           action: SnackBarAction(
             label: 'Setup',
             onPressed: _openKeySettings,
@@ -251,7 +251,6 @@ class _AiScreenState extends State<AiScreen> {
           style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
         ),
         actions: [
-          // Always visible, large hit target
           TextButton.icon(
             onPressed: _openKeySettings,
             icon: Icon(
@@ -272,7 +271,6 @@ class _AiScreenState extends State<AiScreen> {
       ),
       body: Column(
         children: [
-          // Status + setup banner (always tappable)
           Material(
             color: hasKey
                 ? AppTheme.greenStatus.withValues(alpha: 0.1)
@@ -280,7 +278,8 @@ class _AiScreenState extends State<AiScreen> {
             child: InkWell(
               onTap: _openKeySettings,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Icon(
@@ -295,7 +294,9 @@ class _AiScreenState extends State<AiScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            hasKey ? 'Gemini connected' : 'API key not set',
+                            hasKey
+                                ? 'Gemini connected (gratis)'
+                                : 'API key not set',
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
@@ -304,7 +305,7 @@ class _AiScreenState extends State<AiScreen> {
                           Text(
                             hasKey
                                 ? model
-                                : 'Tap here or “Add key” to configure Gemini',
+                                : 'Tap to add free Gemini API key',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: AppTheme.textMuted,
@@ -340,6 +341,7 @@ class _AiScreenState extends State<AiScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
+                            'Gratis via Google Gemini free tier.\n'
                             'Ask anything — summaries, translate, privacy tips.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
@@ -351,7 +353,7 @@ class _AiScreenState extends State<AiScreen> {
                             FilledButton.icon(
                               onPressed: _openKeySettings,
                               icon: const Icon(Icons.vpn_key_rounded),
-                              label: const Text('Add Gemini API key'),
+                              label: const Text('Add free Gemini API key'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppTheme.cyanNeon,
                                 foregroundColor: AppTheme.bgDeep,

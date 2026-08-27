@@ -120,13 +120,13 @@ Other platforms (iOS / web / desktop) have been removed from this repo.
 
 ---
 
-## MPorT AI (Gemini)
+## MPorT AI (Gemini — gratis)
 
-MPorT AI uses **Google Gemini** by default.
+MPorT AI memakai **Google Gemini free tier** saja (provider berbayar dihapus).
 
-1. Create a key: https://aistudio.google.com/apikey
-2. In the app: **MPorT AI → key icon** → paste API key
-3. Or build-time:
+1. Buat key gratis: https://aistudio.google.com/apikey
+2. Di app: **MPorT AI → ikon key** → tempel API key
+3. Atau build-time:
 
 ```bash
 flutter build apk --release \
@@ -134,6 +134,9 @@ flutter build apk --release \
   --dart-define=GEMINI_MODEL=gemini-3.7-flash
 ```
 
-GitHub Actions: add repository **Secret** `GEMINI_API_KEY` (and optional Variable `GEMINI_MODEL`).
+Model default: `gemini-3.7-flash` (stable, free tier).
 
-Fallback: if `MPORT_API_URL` is set, Laravel `/api/v1/ai/chat` is used when Gemini fails or has no key.
+GitHub Actions: tambahkan repository **Secret** `GEMINI_API_KEY` (dan optional Variable `GEMINI_MODEL`).
+
+Fallback: jika `MPORT_API_URL` di-set, Laravel `/api/v1/ai/chat` dipakai saat Gemini gagal atau belum ada key.
+
