@@ -74,3 +74,24 @@ Android documents that `shouldInterceptRequest` is not called for `javascript:`,
 - Removed the explicit `org.jetbrains.kotlin.android` plugin declaration and `kotlin.version` override because the project uses AGP 9 built-in Kotlin (`android.builtInKotlin=true`).
 - Kept Java 17 and Gradle 9.3.1, matching the Flutter 3.47 Android toolchain matrix.
 - No Dart application logic, assets, signing behavior, or security settings were changed by this repair.
+
+
+## CI build repair v6 (2026-08-28)
+
+- Fixed Flutter 3.47 CI failure reporting Kotlin Gradle Plugin 2.2.10 below the required 2.2.20 minimum.
+- Explicitly pinned Kotlin Gradle Plugin to 2.3.20, which is compatible with AGP 9.0.x.
+- Pinned Android Gradle Plugin to 9.0.1 and Gradle wrapper to 9.1.0 for a consistent AGP/KGP/Gradle toolchain.
+- Enabled the new AGP DSL with `android.newDsl=true`.
+- Temporarily uses Flutter's supported legacy-KGP compatibility mode with `android.builtInKotlin=false`; this avoids the unresolved KGP 2.2.10 mismatch while keeping Kotlin at a supported version.
+- Added the Kotlin Android plugin explicitly at version 2.3.20.
+- No Dart application logic, assets, signing secrets, or runtime security settings were changed.
+
+## CI build repair v6 (2026-08-28)
+
+- Fixed Flutter 3.47 CI failure reporting Kotlin Gradle Plugin 2.2.10 below the required 2.2.20 minimum.
+- Explicitly pinned Kotlin Gradle Plugin to 2.3.20, which is compatible with AGP 9.0.x.
+- Pinned Android Gradle Plugin to 9.0.1 and Gradle wrapper to 9.1.0 for a consistent AGP/KGP/Gradle toolchain.
+- Enabled the new AGP DSL with `android.newDsl=true`.
+- Temporarily uses Flutter's supported legacy-KGP compatibility mode with `android.builtInKotlin=false`; this avoids the unresolved KGP 2.2.10 mismatch while keeping Kotlin at a supported version.
+- Added the Kotlin Android plugin explicitly at version 2.3.20.
+- No Dart application logic, assets, signing secrets, or runtime security settings were changed.
