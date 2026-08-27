@@ -131,7 +131,7 @@ MPorT AI uses **Google Gemini** by default.
 ```bash
 flutter build apk --release \
   --dart-define=GEMINI_API_KEY=YOUR_KEY \
-  --dart-define=GEMINI_MODEL=gemini-2.0-flash
+  --dart-define=GEMINI_MODEL=gemini-3.7-flash
 ```
 
 GitHub Actions: add repository **Secret** `GEMINI_API_KEY` (and optional Variable `GEMINI_MODEL`).

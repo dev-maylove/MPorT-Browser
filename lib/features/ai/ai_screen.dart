@@ -138,7 +138,7 @@ class _AiScreenState extends State<AiScreen> {
                     style: const TextStyle(color: AppTheme.textPrimary),
                     decoration: const InputDecoration(
                       labelText: 'Model',
-                      hintText: 'gemini-2.0-flash',
+                      hintText: 'gemini-3.7-flash',
                       hintStyle: TextStyle(color: AppTheme.textMuted),
                       border: OutlineInputBorder(),
                     ),

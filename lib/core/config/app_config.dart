@@ -29,7 +29,7 @@ class AppConfig {
   /// Gemini model id.
   static const geminiModel = String.fromEnvironment(
     'GEMINI_MODEL',
-    defaultValue: 'gemini-2.0-flash',
+    defaultValue: 'gemini-3.7-flash',
   );
 
   static const enableHttp = bool.fromEnvironment(
