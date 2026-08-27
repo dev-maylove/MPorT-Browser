@@ -8,6 +8,8 @@ class BrowserTab {
     required this.url,
     this.title = 'New Tab',
     this.private = false,
+    this.groupId,
+    this.groupName,
   });
 
   final String id;
@@ -15,6 +17,8 @@ class BrowserTab {
   String url;
   String title;
   bool private;
+  String? groupId;
+  String? groupName;
   bool loading = false;
   int progress = 0;
   bool canBack = false;

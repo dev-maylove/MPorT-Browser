@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../controllers/browser_controller.dart';
 import '../browser/browser_screen.dart';
+import '../home/new_tab_screen.dart';
 
 class TabsScreen extends StatelessWidget {
   const TabsScreen({super.key, required this.controller});
@@ -16,15 +17,31 @@ class TabsScreen extends StatelessWidget {
           actions: [
             IconButton(
               tooltip: 'Private tab',
-              onPressed: () {
+              onPressed: () async {
                 controller.newPrivateTab();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => NewTabScreen(controller: controller),
+                    ),
+                    (route) => false,
+                  );
+                }
               },
               icon: const Icon(Icons.visibility_off_rounded),
             ),
             IconButton(
               tooltip: 'New tab',
-              onPressed: () {
-                controller.open('about:blank');
+              onPressed: () async {
+                await controller.newTab();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => NewTabScreen(controller: controller),
+                    ),
+                    (route) => false,
+                  );
+                }
               },
               icon: const Icon(Icons.add_rounded),
             ),
@@ -84,7 +101,9 @@ class TabsScreen extends StatelessWidget {
                           child: Text(
                             tab.private
                                 ? 'Private Tab'
-                                : (tab.title.isEmpty ? 'New Tab' : tab.title),
+                                : (tab.groupName != null
+                                    ? '[${tab.groupName}] ${tab.title.isEmpty ? 'New Tab' : tab.title}'
+                                    : (tab.title.isEmpty ? 'New Tab' : tab.title)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

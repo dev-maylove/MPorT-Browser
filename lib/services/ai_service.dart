@@ -40,7 +40,21 @@ class AiService {
 
   Future<String> resolveModel() async {
     final saved = await _storage.getString(_geminiModelStorage);
-    if (saved != null && saved.trim().isNotEmpty) return saved.trim();
+    if (saved != null && saved.trim().isNotEmpty) {
+      final m = saved.trim();
+      // Migrate shutdown / unavailable models to current free Flash.
+      const shutdown = {
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+      };
+      if (shutdown.contains(m)) {
+        await _storage.setString(_geminiModelStorage, AppConfig.geminiModel);
+        return AppConfig.geminiModel;
+      }
+      return m;
+    }
     return AppConfig.geminiModel;
   }
 

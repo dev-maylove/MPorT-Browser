@@ -14,7 +14,6 @@ class ExtensionsScreen extends StatelessWidget {
 
   Future<void> _openStore(BuildContext context) async {
     final uri = Uri.parse(kChromeWebStoreExtensions);
-    // Prefer in-app browser if controller available
     if (controller != null) {
       Navigator.of(context).pop();
       await controller!.open(kChromeWebStoreExtensions);
@@ -42,21 +41,28 @@ class ExtensionsScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.bgCard,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.cyanNeon.withValues(alpha: 0.25)),
+              border:
+                  Border.all(color: AppTheme.cyanNeon.withValues(alpha: 0.25)),
             ),
             child: Column(
               children: [
-                const Icon(Icons.extension_rounded, size: 48, color: AppTheme.cyanNeon),
+                const Icon(Icons.extension_rounded,
+                    size: 48, color: AppTheme.cyanNeon),
                 const SizedBox(height: 12),
                 Text(
                   'Chrome Web Store',
-                  style: GoogleFonts.orbitron(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: GoogleFonts.orbitron(
+                      fontSize: 16, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Browse and discover extensions from the official Chrome Web Store.',
+                  'Jelajahi ekstensi di Chrome Web Store.\n\n'
+                  'Catatan: tombol “Add to Chrome” hanya muncul di Google Chrome. '
+                  'MPorT Browser (WebView Android) tidak bisa memasang ekstensi Chrome (.crx). '
+                  'Gunakan store untuk mencari & membuka halaman ekstensi.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
+                  style: GoogleFonts.inter(
+                      color: AppTheme.textSecondary, fontSize: 13, height: 1.4),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -73,16 +79,34 @@ class ExtensionsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             tileColor: AppTheme.bgCard,
-            leading: const Icon(Icons.storefront_rounded, color: AppTheme.cyanNeon),
+            leading:
+                const Icon(Icons.storefront_rounded, color: AppTheme.cyanNeon),
             title: const Text('Chrome Web Store'),
             subtitle: Text(
               kChromeWebStoreExtensions,
-              style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
+              style:
+                  GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => _openStore(context),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            tileColor: AppTheme.bgCard,
+            leading: const Icon(Icons.info_outline_rounded,
+                color: AppTheme.textMuted),
+            title: const Text('Mengapa tidak ada “Add to Chrome”?'),
+            subtitle: Text(
+              'Chrome menyembunyikan tombol itu di browser non-Chrome. '
+              'Instalasi ekstensi hanya didukung engine Chrome penuh.',
+              style:
+                  GoogleFonts.inter(fontSize: 12, color: AppTheme.textMuted),
+            ),
           ),
         ],
       ),

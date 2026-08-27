@@ -398,6 +398,27 @@ class BrowserController extends ChangeNotifier {
     open('about:blank', private: true);
   }
 
+  /// Open a fresh home / start page tab (about:blank landing).
+  Future<void> newHomeTab() async {
+    await open('about:blank', private: false);
+  }
+
+  /// Open a normal new tab.
+  Future<void> newTab() async {
+    await open('about:blank', private: false);
+  }
+
+  /// Assign active tab to a new named group.
+  void addActiveTabToNewGroup({String name = 'Group'}) {
+    if (tabs.tabs.isEmpty) return;
+    final tab = tabs.active;
+    final gid = 'g_${DateTime.now().millisecondsSinceEpoch}';
+    tab.groupId = gid;
+    tab.groupName = name;
+    tab.notify();
+    _notify();
+  }
+
   void closePrivateTabs() {
     tabs.closePrivate();
     _notify();

@@ -93,7 +93,7 @@ class _AiScreenState extends State<AiScreen> {
                       const Icon(Icons.vpn_key_rounded, color: AppTheme.cyanNeon),
                       const SizedBox(width: 10),
                       Text(
-                        'Gemini API Key (gratis)',
+                        'AI API Key',
                         style: GoogleFonts.orbitron(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
@@ -203,7 +203,7 @@ class _AiScreenState extends State<AiScreen> {
     if (!hasKey) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Set Gemini API key first (gratis)'),
+          content: const Text('Setup AI key first'),
           action: SnackBarAction(
             label: 'Setup',
             onPressed: _openKeySettings,
@@ -246,81 +246,16 @@ class _AiScreenState extends State<AiScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgDeep,
       appBar: AppBar(
-        title: Text(
-          'MPorT AI',
-          style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: _openKeySettings,
-            icon: Icon(
-              hasKey ? Icons.vpn_key_rounded : Icons.vpn_key_off_rounded,
-              color: hasKey ? AppTheme.cyanNeon : AppTheme.textMuted,
-              size: 20,
-            ),
-            label: Text(
-              hasKey ? 'Key' : 'Add key',
-              style: TextStyle(
-                color: hasKey ? AppTheme.cyanNeon : AppTheme.textSecondary,
-                fontSize: 13,
-              ),
-            ),
+        title: GestureDetector(
+          onLongPress: _openKeySettings,
+          child: Text(
+            'MPorT AI',
+            style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(width: 4),
-        ],
+        ),
       ),
       body: Column(
         children: [
-          Material(
-            color: hasKey
-                ? AppTheme.greenStatus.withValues(alpha: 0.1)
-                : AppTheme.cyanNeon.withValues(alpha: 0.12),
-            child: InkWell(
-              onTap: _openKeySettings,
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      hasKey
-                          ? Icons.check_circle_rounded
-                          : Icons.vpn_key_off_rounded,
-                      color: hasKey ? AppTheme.greenStatus : AppTheme.cyanNeon,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            hasKey
-                                ? 'Gemini connected (gratis)'
-                                : 'API key not set',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            hasKey
-                                ? model
-                                : 'Tap to add free Gemini API key',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded,
-                        color: AppTheme.textMuted),
-                  ],
-                ),
-              ),
-            ),
-          ),
           Expanded(
             child: messages.isEmpty
                 ? Center(
@@ -333,7 +268,7 @@ class _AiScreenState extends State<AiScreen> {
                               size: 48, color: AppTheme.cyanNeon),
                           const SizedBox(height: 16),
                           Text(
-                            'MPorT AI + Gemini',
+                            'MPorT AI',
                             style: GoogleFonts.orbitron(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -341,7 +276,6 @@ class _AiScreenState extends State<AiScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Gratis via Google Gemini free tier.\n'
                             'Ask anything — summaries, translate, privacy tips.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
@@ -352,8 +286,8 @@ class _AiScreenState extends State<AiScreen> {
                             const SizedBox(height: 20),
                             FilledButton.icon(
                               onPressed: _openKeySettings,
-                              icon: const Icon(Icons.vpn_key_rounded),
-                              label: const Text('Add free Gemini API key'),
+                              icon: const Icon(Icons.settings_rounded),
+                              label: const Text('Setup AI'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppTheme.cyanNeon,
                                 foregroundColor: AppTheme.bgDeep,

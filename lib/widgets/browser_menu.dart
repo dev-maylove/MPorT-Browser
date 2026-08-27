@@ -17,6 +17,9 @@ import '../features/tools/find_in_page_screen.dart';
 import '../features/tools/share_sheet.dart';
 import '../features/tools/translate_screen.dart';
 import '../features/ai/ai_screen.dart';
+import '../features/home/new_tab_screen.dart';
+import '../features/browser/browser_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Hamburger menu — visual match to MPorT design (right glass panel).
 class BrowserMenu {
@@ -111,18 +114,13 @@ class _MenuPanelState extends State<_MenuPanel> {
                         // —— Tabs ——
                         _homeHighlight(),
                         _row(Icons.add_circle_outline_rounded, 'New tab', () {
-                          _close();
-                          c.open('about:blank');
+                          _goNewTab(private: false);
                         }),
                         _row(Icons.visibility_off_outlined, 'New Private tab', () {
-                          _close();
-                          c.newPrivateTab();
+                          _goNewTab(private: true);
                         }),
                         _row(Icons.grid_view_rounded, 'Add tab to new group', () {
-                          _close();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Tab groups coming soon')),
-                          );
+                          _addToNewGroup();
                         }),
 
                         _line(),
@@ -183,14 +181,7 @@ class _MenuPanelState extends State<_MenuPanel> {
                         }),
                         if (!kIsWeb)
                           _row(Icons.smartphone_rounded, 'Set as Default Browser', () {
-                            _close();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Open system settings to set MPorT as default browser',
-                                ),
-                              ),
-                            );
+                            _openDefaultBrowserSettings();
                           }),
 
                         _section('ABOUT'),
@@ -321,6 +312,74 @@ class _MenuPanelState extends State<_MenuPanel> {
 
   // ─── Highlighted first row (New Home tab) ─────────────────────────────
 
+  Future<void> _goHomeTab() async {
+    _close();
+    await c.newHomeTab();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => NewTabScreen(controller: c)),
+      (route) => false,
+    );
+  }
+
+  Future<void> _goNewTab({bool private = false}) async {
+    _close();
+    if (private) {
+      c.newPrivateTab();
+    } else {
+      await c.newTab();
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => NewTabScreen(controller: c)),
+      (route) => false,
+    );
+  }
+
+  Future<void> _addToNewGroup() async {
+    _close();
+    c.addActiveTabToNewGroup(name: 'Group ${c.tabs.tabs.where((t) => t.groupId != null).map((t) => t.groupId).toSet().length + 1}');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          c.tabs.active.groupName != null
+              ? 'Tab added to "${c.tabs.active.groupName}"'
+              : 'Tab group created',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDefaultBrowserSettings() async {
+    _close();
+    // Try system default-apps settings, then app details as fallback.
+    final candidates = <Uri>[
+      Uri.parse('intent:#Intent;action=android.settings.MANAGE_DEFAULT_APPS_SETTINGS;end'),
+      Uri.parse('intent:#Intent;action=android.settings.MANAGE_DEFAULT_APPS_SETTINGS;category=android.intent.category.DEFAULT;end'),
+      Uri.parse('android-app://com.android.settings'),
+    ];
+    var opened = false;
+    for (final uri in candidates) {
+      try {
+        if (await canLaunchUrl(uri)) {
+          opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (opened) break;
+        }
+      } catch (_) {}
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Buka Settings → Apps → Default apps → Browser app, lalu pilih MPorT Browser',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
   Widget _homeHighlight() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -328,8 +387,7 @@ class _MenuPanelState extends State<_MenuPanel> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            _close();
-            c.open(AppConfig.webBaseUrl);
+            _goHomeTab();
           },
           borderRadius: BorderRadius.circular(14),
           child: Ink(
