@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/ai_service.dart';
 
@@ -18,6 +19,8 @@ class _AiScreenState extends State<AiScreen> {
   final input = TextEditingController();
   final messages = <Map<String, String>>[];
   bool loading = false;
+  bool hasKey = false;
+  String model = AppConfig.geminiModel;
 
   @override
   void initState() {
@@ -25,6 +28,93 @@ class _AiScreenState extends State<AiScreen> {
     final seed = widget.initialPrompt?.trim();
     if (seed != null && seed.isNotEmpty) {
       input.text = seed;
+    }
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    final key = await ai.resolveGeminiKey();
+    final m = await ai.resolveModel();
+    if (!mounted) return;
+    setState(() {
+      hasKey = key != null && key.isNotEmpty;
+      model = m;
+    });
+  }
+
+  Future<void> _openKeySettings() async {
+    final keyCtrl = TextEditingController(text: '');
+    final existing = await ai.resolveGeminiKey();
+    if (existing != null) keyCtrl.text = existing;
+    final modelCtrl = TextEditingController(text: await ai.resolveModel());
+
+    if (!mounted) return;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgCard,
+        title: Text(
+          'Gemini API',
+          style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Get a free key at aistudio.google.com/apikey',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: keyCtrl,
+                obscureText: true,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'API Key',
+                  hintText: 'AIza...',
+                  hintStyle: TextStyle(color: AppTheme.textMuted),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: modelCtrl,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  hintText: 'gemini-2.0-flash',
+                  hintStyle: TextStyle(color: AppTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true) {
+      await ai.saveGeminiKey(keyCtrl.text);
+      await ai.saveModel(modelCtrl.text.isEmpty ? AppConfig.geminiModel : modelCtrl.text);
+      await _loadStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gemini settings saved')),
+        );
+      }
     }
   }
 
@@ -76,15 +166,53 @@ class _AiScreenState extends State<AiScreen> {
                   size: 16, color: AppTheme.bgDeep),
             ),
             const SizedBox(width: 10),
-            Text(
-              'MPorT AI',
-              style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MPorT AI',
+                  style: GoogleFonts.orbitron(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  hasKey ? 'Gemini · $model' : 'Gemini key required',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: hasKey ? AppTheme.greenStatus : AppTheme.textMuted,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Gemini API key',
+            onPressed: _openKeySettings,
+            icon: Icon(
+              hasKey ? Icons.vpn_key_rounded : Icons.vpn_key_off_rounded,
+              color: hasKey ? AppTheme.cyanNeon : AppTheme.textMuted,
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
+          if (!hasKey)
+            Material(
+              color: AppTheme.cyanNeon.withValues(alpha: 0.12),
+              child: ListTile(
+                leading: const Icon(Icons.info_outline, color: AppTheme.cyanNeon),
+                title: const Text('Connect Gemini'),
+                subtitle: const Text('Tap the key icon to add your API key'),
+                trailing: TextButton(
+                  onPressed: _openKeySettings,
+                  child: const Text('Setup'),
+                ),
+              ),
+            ),
           Expanded(
             child: messages.isEmpty
                 ? Center(
@@ -93,25 +221,22 @@ class _AiScreenState extends State<AiScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.auto_awesome_rounded,
-                              size: 48,
-                              color:
-                                  AppTheme.cyanNeon.withValues(alpha: 0.5)),
+                          const Icon(Icons.auto_awesome_rounded,
+                              size: 48, color: AppTheme.cyanNeon),
                           const SizedBox(height: 16),
                           Text(
-                            'MPorT ISP Assistant',
+                            'MPorT AI + Gemini',
                             style: GoogleFonts.orbitron(
-                              fontSize: 16,
-                              color: AppTheme.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Ask about packages, invoices, tickets, or network status.',
+                            'Ask anything — summaries, translate, privacy tips, browsing help.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               color: AppTheme.textSecondary,
-                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -119,35 +244,51 @@ class _AiScreenState extends State<AiScreen> {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                    itemCount: messages.length + (loading ? 1 : 0),
                     itemBuilder: (_, i) {
-                      final user = messages[i]['role'] == 'user';
+                      if (loading && i == messages.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      final m = messages[i];
+                      final isUser = m['role'] == 'user';
                       return Align(
-                        alignment: user
+                        alignment: isUser
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
                         child: Container(
-                          constraints: const BoxConstraints(maxWidth: 370),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            gradient: user ? AppTheme.gradientCyanPurple : null,
-                            color: user ? null : AppTheme.bgCard,
-                            borderRadius: BorderRadius.circular(18),
-                            border: user
-                                ? null
-                                : Border.all(
-                                    color: AppTheme.cyanNeon
-                                        .withValues(alpha: 0.15),
-                                  ),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                          child: Text(
-                            messages[i]['content'] ?? '',
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isUser
+                                ? AppTheme.cyanNeon.withValues(alpha: 0.2)
+                                : AppTheme.bgCard,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppTheme.cyanNeon.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: SelectableText(
+                            m['content'] ?? '',
                             style: GoogleFonts.inter(
-                              color: user
-                                  ? AppTheme.bgDeep
-                                  : AppTheme.textPrimary,
+                              color: AppTheme.textPrimary,
+                              height: 1.35,
                             ),
                           ),
                         ),
@@ -155,14 +296,10 @@ class _AiScreenState extends State<AiScreen> {
                     },
                   ),
           ),
-          if (loading)
-            const LinearProgressIndicator(
-              color: AppTheme.cyanNeon,
-              backgroundColor: AppTheme.bgCard,
-            ),
           SafeArea(
+            top: false,
             child: Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Row(
                 children: [
                   Expanded(
@@ -174,7 +311,7 @@ class _AiScreenState extends State<AiScreen> {
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => send(),
                       decoration: const InputDecoration(
-                        hintText: 'Ask about MPorT...',
+                        hintText: 'Ask MPorT AI...',
                       ),
                     ),
                   ),

@@ -116,3 +116,24 @@ scripts/          # enable_platforms, fix_android_toolchain, build_all
 ```
 
 Other platforms (iOS / web / desktop) have been removed from this repo.
+
+
+---
+
+## MPorT AI (Gemini)
+
+MPorT AI uses **Google Gemini** by default.
+
+1. Create a key: https://aistudio.google.com/apikey
+2. In the app: **MPorT AI → key icon** → paste API key
+3. Or build-time:
+
+```bash
+flutter build apk --release \
+  --dart-define=GEMINI_API_KEY=YOUR_KEY \
+  --dart-define=GEMINI_MODEL=gemini-2.0-flash
+```
+
+GitHub Actions: add repository **Secret** `GEMINI_API_KEY` (and optional Variable `GEMINI_MODEL`).
+
+Fallback: if `MPORT_API_URL` is set, Laravel `/api/v1/ai/chat` is used when Gemini fails or has no key.

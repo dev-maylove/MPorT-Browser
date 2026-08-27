@@ -20,6 +20,18 @@ class AppConfig {
     defaultValue: true,
   );
 
+  /// Google Gemini API key (build-time). Can also be set in-app under MPorT AI.
+  static const geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
+
+  /// Gemini model id.
+  static const geminiModel = String.fromEnvironment(
+    'GEMINI_MODEL',
+    defaultValue: 'gemini-2.0-flash',
+  );
+
   static const enableHttp = bool.fromEnvironment(
     'MPORT_ALLOW_HTTP',
     defaultValue: true,

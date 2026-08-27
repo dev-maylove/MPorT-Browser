@@ -8,6 +8,8 @@ on:
 env:
   MPORT_URL: ${{ vars.MPORT_URL }}
   MPORT_API_URL: ${{ vars.MPORT_API_URL }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GEMINI_MODEL: ${{ vars.GEMINI_MODEL != '' && vars.GEMINI_MODEL || 'gemini-2.0-flash' }}
 
 jobs:
   build-android:
@@ -41,14 +43,18 @@ jobs:
           flutter build apk --release --tree-shake-icons \
             --dart-define=MPORT_URL=${{ env.MPORT_URL }} \
             --dart-define=MPORT_API_URL=${{ env.MPORT_API_URL }} \
-            --dart-define=MPORT_AI=true
+            --dart-define=MPORT_AI=true \
+            --dart-define=GEMINI_API_KEY=${{ env.GEMINI_API_KEY }} \
+            --dart-define=GEMINI_MODEL=${{ env.GEMINI_MODEL }}
 
       - name: Build App Bundle
         run: |
           flutter build appbundle --release --tree-shake-icons \
             --dart-define=MPORT_URL=${{ env.MPORT_URL }} \
             --dart-define=MPORT_API_URL=${{ env.MPORT_API_URL }} \
-            --dart-define=MPORT_AI=true
+            --dart-define=MPORT_AI=true \
+            --dart-define=GEMINI_API_KEY=${{ env.GEMINI_API_KEY }} \
+            --dart-define=GEMINI_MODEL=${{ env.GEMINI_MODEL }}
 
       - uses: actions/upload-artifact@v4
         with:
