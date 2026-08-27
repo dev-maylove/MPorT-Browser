@@ -164,8 +164,8 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     }
     try {
       final result =
-          await c!.tabs.active.controller.runJavaScriptReturningResult(code);
-      _log('result', result?.toString() ?? 'undefined');
+          await c.tabs.active.controller.runJavaScriptReturningResult(code);
+      _log('result', result.toString());
     } catch (e) {
       _log('error', e.toString());
     }

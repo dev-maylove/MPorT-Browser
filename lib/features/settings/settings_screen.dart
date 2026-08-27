@@ -173,7 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: trackingProtection,
             title: const Text('Tracking protection'),
             subtitle: const Text('Block known trackers'),
-            activeColor: AppTheme.cyanNeon,
+            activeThumbColor: AppTheme.cyanNeon,
             onChanged: (v) async {
               await storage.setBool('tracking_protection', v);
               setState(() => trackingProtection = v);
@@ -183,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: adBlocking,
             title: const Text('Ad blocking'),
             subtitle: const Text('Block common ad domains'),
-            activeColor: AppTheme.cyanNeon,
+            activeThumbColor: AppTheme.cyanNeon,
             onChanged: (v) async {
               await storage.setBool('ad_blocking', v);
               setState(() => adBlocking = v);
@@ -218,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: httpsOnly,
             title: const Text('HTTPS-Only Mode'),
             subtitle: const Text('Prefer secure connections'),
-            activeColor: AppTheme.cyanNeon,
+            activeThumbColor: AppTheme.cyanNeon,
             onChanged: (v) async {
               await storage.setBool('https_only', v);
               setState(() => httpsOnly = v);
@@ -270,7 +270,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: javascriptEnabled,
             title: const Text('JavaScript'),
             subtitle: const Text('Allow pages to run scripts'),
-            activeColor: AppTheme.cyanNeon,
+            activeThumbColor: AppTheme.cyanNeon,
             onChanged: (v) async {
               await storage.setBool('javascript_enabled', v);
               setState(() => javascriptEnabled = v);
@@ -280,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: showImages,
             title: const Text('Show images'),
             subtitle: const Text('Load images on pages'),
-            activeColor: AppTheme.cyanNeon,
+            activeThumbColor: AppTheme.cyanNeon,
             onChanged: (v) async {
               await storage.setBool('show_images', v);
               setState(() => showImages = v);

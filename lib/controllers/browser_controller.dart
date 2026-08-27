@@ -7,6 +7,7 @@ import '../core/utils/url_utils.dart';
 import '../core/utils/perf.dart';
 import '../models/browser_tab.dart';
 import '../models/history_entry.dart';
+import '../models/permission_rule.dart';
 import '../models/search_engine.dart';
 import '../security/permission_manager.dart';
 import '../security/tracker_blocker.dart';
@@ -417,7 +418,7 @@ class BrowserController extends ChangeNotifier {
       try {
         final js = _googleTranslateInjectJs(targetLang);
         final result = await tab.controller.runJavaScriptReturningResult(js);
-        final s = result?.toString() ?? '';
+        final s = result.toString();
         if (s.startsWith('err')) {
           await _openGoogleTranslateProxy(url, targetLang);
         }
