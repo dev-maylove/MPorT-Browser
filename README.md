@@ -148,3 +148,8 @@ flutter build apk --release \
 Endpoint utama yang diharapkan client: `POST /api/v1/ai/chat` dengan body `message`, `history`, dan optional `page_context`.
 
 **Jangan** menambahkan `GEMINI_API_KEY` ke `--dart-define`, GitHub Actions, atau source aplikasi. Simpan provider key hanya di server.
+
+
+## Android toolchain
+
+This release uses AGP 9.3.0, Gradle 9.5.0, Java 17, and AGP built-in Kotlin with the new Android DSL. The legacy `org.jetbrains.kotlin.android` plugin is not applied.
