@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show Color;
 import 'package:uuid/uuid.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../models/browser_tab.dart';
 
 class TabManager {
@@ -13,21 +11,11 @@ class TabManager {
     required String initialUrl,
     bool private = false,
   }) {
-    final controller = WebViewController();
-    if (!kIsWeb) {
-      controller
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(const Color(0xFF06080F))
-        ..enableZoom(true);
-    }
-
     final tab = BrowserTab(
       id: _uuid.v4(),
-      controller: controller,
       url: initialUrl,
       private: private,
     );
-
     tabs.add(tab);
     activeIndex = tabs.length - 1;
     return tab;
@@ -62,15 +50,12 @@ class TabManager {
       only.private = false;
       only.groupId = null;
       only.groupName = null;
+      only.controller?.loadUrl(
+        urlRequest: URLRequest(url: WebUri('about:blank')),
+      );
       only.notify();
-      if (!kIsWeb) {
-        try {
-          only.controller.loadRequest(Uri.parse('about:blank'));
-        } catch (_) {}
-      }
       return;
     }
-
     tabs.removeAt(index);
     if (activeIndex >= tabs.length) {
       activeIndex = tabs.length - 1;

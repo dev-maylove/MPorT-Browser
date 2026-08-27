@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class BrowserTab {
   BrowserTab({
     required this.id,
-    required this.controller,
     required this.url,
     this.title = 'New Tab',
     this.private = false,
@@ -13,7 +12,6 @@ class BrowserTab {
   });
 
   final String id;
-  final WebViewController controller;
   String url;
   String title;
   bool private;
@@ -24,6 +22,9 @@ class BrowserTab {
   bool canBack = false;
   bool canForward = false;
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
+  /// Chromium-based InAppWebView controller (Android System WebView / WKWebView).
+  InAppWebViewController? controller;
 
   void notify() => revision.value++;
 }

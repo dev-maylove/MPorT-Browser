@@ -159,6 +159,24 @@ class _MenuPanelState extends State<_MenuPanel> {
                         _row(Icons.extension_rounded, 'Extensions', () {
                           _open(ExtensionsScreen(controller: c));
                         }),
+                        _row(Icons.public_rounded, 'Buka di Chrome', () async {
+                          _close();
+                          final url = c.tabs.active.url;
+                          if (url.isEmpty || url == 'about:blank') {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Tidak ada halaman untuk dibuka')),
+                              );
+                            }
+                            return;
+                          }
+                          final ok = await NativeBridge.openCustomTab(url);
+                          if (!ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Chrome/Custom Tabs tidak tersedia')),
+                            );
+                          }
+                        }),
 
                         _section('PRIVACY & SECURITY'),
 

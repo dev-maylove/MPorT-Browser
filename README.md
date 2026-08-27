@@ -120,6 +120,16 @@ Other platforms (iOS / web / desktop) have been removed from this repo.
 
 ---
 
+## Engine browser (Android)
+
+MPorT memakai **Android System WebView berbasis Chromium** lewat `flutter_inappwebview`
+(standar industri untuk browser Flutter mobile, setara Chrome mobile API).
+
+**Bukan** embed Chromium/CEF penuh:
+- CEF (`webview_cef`) hanya untuk **desktop** (Windows/macOS/Linux)
+- Ekstensi Chrome (`.crx` / Add to Chrome) **tidak didukung** di WebView Android
+- Untuk engine Chrome asli + login/cookie Chrome: gunakan **Buka di Chrome** (Custom Tabs)
+
 ## MPorT AI (Gemini — gratis)
 
 MPorT AI memakai **Google Gemini free tier** saja (provider berbayar dihapus).
