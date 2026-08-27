@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
@@ -7,7 +8,6 @@ import '../../services/ai_service.dart';
 class AiScreen extends StatefulWidget {
   const AiScreen({super.key, this.initialPrompt});
 
-  /// Optional starter prompt (e.g. Summarize / Translate).
   final String? initialPrompt;
 
   @override
@@ -29,98 +29,190 @@ class _AiScreenState extends State<AiScreen> {
     if (seed != null && seed.isNotEmpty) {
       input.text = seed;
     }
-    _loadStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStatus());
   }
 
   Future<void> _loadStatus() async {
-    final key = await ai.resolveGeminiKey();
-    final m = await ai.resolveModel();
-    if (!mounted) return;
-    setState(() {
-      hasKey = key != null && key.isNotEmpty;
-      model = m;
-    });
+    try {
+      final key = await ai.resolveGeminiKey();
+      final m = await ai.resolveModel();
+      if (!mounted) return;
+      setState(() {
+        hasKey = key != null && key.isNotEmpty;
+        model = m;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => hasKey = false);
+    }
   }
 
   Future<void> _openKeySettings() async {
-    final keyCtrl = TextEditingController(text: '');
-    final existing = await ai.resolveGeminiKey();
-    if (existing != null) keyCtrl.text = existing;
-    final modelCtrl = TextEditingController(text: await ai.resolveModel());
+    final keyCtrl = TextEditingController();
+    final modelCtrl = TextEditingController(text: model);
+    var obscure = true;
+
+    try {
+      final existing = await ai.resolveGeminiKey();
+      if (existing != null && existing.isNotEmpty) {
+        keyCtrl.text = existing;
+      }
+    } catch (_) {}
 
     if (!mounted) return;
-    final saved = await showDialog<bool>(
+
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgCard,
-        title: Text(
-          'Gemini API',
-          style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Get a free key at aistudio.google.com/apikey',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: keyCtrl,
-                obscureText: true,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: const InputDecoration(
-                  labelText: 'API Key',
-                  hintText: 'AIza...',
-                  hintStyle: TextStyle(color: AppTheme.textMuted),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: modelCtrl,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: const InputDecoration(
-                  labelText: 'Model',
-                  hintText: 'gemini-2.0-flash',
-                  hintStyle: TextStyle(color: AppTheme.textMuted),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: AppTheme.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            final bottom = MediaQuery.viewInsetsOf(ctx).bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppTheme.textMuted,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.vpn_key_rounded, color: AppTheme.cyanNeon),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Gemini API Key',
+                        style: GoogleFonts.orbitron(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Get a free key at aistudio.google.com/apikey then paste it below.',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: keyCtrl,
+                    obscureText: obscure,
+                    autofocus: true,
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'API Key',
+                      hintText: 'AIza...',
+                      hintStyle: const TextStyle(color: AppTheme.textMuted),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscure
+                              ? Icons.visibility_rounded
+                              : Icons.visibility_off_rounded,
+                          color: AppTheme.textMuted,
+                        ),
+                        onPressed: () => setModal(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: modelCtrl,
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    decoration: const InputDecoration(
+                      labelText: 'Model',
+                      hintText: 'gemini-2.0-flash',
+                      hintStyle: TextStyle(color: AppTheme.textMuted),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final key = keyCtrl.text.trim();
+                      final m = modelCtrl.text.trim().isEmpty
+                          ? AppConfig.geminiModel
+                          : modelCtrl.text.trim();
+                      await ai.saveGeminiKey(key);
+                      await ai.saveModel(m);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      await _loadStatus();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              key.isEmpty
+                                  ? 'API key cleared'
+                                  : 'Gemini API key saved',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.save_rounded),
+                    label: const Text('Save'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.cyanNeon,
+                      foregroundColor: AppTheme.bgDeep,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () async {
+                      await ai.saveGeminiKey('');
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      await _loadStatus();
+                    },
+                    child: const Text('Clear key'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
 
-    if (saved == true) {
-      await ai.saveGeminiKey(keyCtrl.text);
-      await ai.saveModel(modelCtrl.text.isEmpty ? AppConfig.geminiModel : modelCtrl.text);
-      await _loadStatus();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gemini settings saved')),
-        );
-      }
-    }
+    keyCtrl.dispose();
+    modelCtrl.dispose();
   }
 
   Future<void> send() async {
     final text = input.text.trim();
     if (text.isEmpty || loading) return;
+
+    if (!hasKey) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Set Gemini API key first'),
+          action: SnackBarAction(
+            label: 'Setup',
+            onPressed: _openKeySettings,
+          ),
+        ),
+      );
+      await _openKeySettings();
+      return;
+    }
 
     input.clear();
     final historyForApi = List<Map<String, String>>.from(messages);
@@ -154,65 +246,80 @@ class _AiScreenState extends State<AiScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgDeep,
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: AppTheme.gradientAi,
-              ),
-              child: const Icon(Icons.auto_awesome_rounded,
-                  size: 16, color: AppTheme.bgDeep),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'MPorT AI',
-                  style: GoogleFonts.orbitron(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  hasKey ? 'Gemini · $model' : 'Gemini key required',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: hasKey ? AppTheme.greenStatus : AppTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
+        title: Text(
+          'MPorT AI',
+          style: GoogleFonts.orbitron(fontWeight: FontWeight.w700),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Gemini API key',
+          // Always visible, large hit target
+          TextButton.icon(
             onPressed: _openKeySettings,
             icon: Icon(
               hasKey ? Icons.vpn_key_rounded : Icons.vpn_key_off_rounded,
               color: hasKey ? AppTheme.cyanNeon : AppTheme.textMuted,
+              size: 20,
+            ),
+            label: Text(
+              hasKey ? 'Key' : 'Add key',
+              style: TextStyle(
+                color: hasKey ? AppTheme.cyanNeon : AppTheme.textSecondary,
+                fontSize: 13,
+              ),
             ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
         children: [
-          if (!hasKey)
-            Material(
-              color: AppTheme.cyanNeon.withValues(alpha: 0.12),
-              child: ListTile(
-                leading: const Icon(Icons.info_outline, color: AppTheme.cyanNeon),
-                title: const Text('Connect Gemini'),
-                subtitle: const Text('Tap the key icon to add your API key'),
-                trailing: TextButton(
-                  onPressed: _openKeySettings,
-                  child: const Text('Setup'),
+          // Status + setup banner (always tappable)
+          Material(
+            color: hasKey
+                ? AppTheme.greenStatus.withValues(alpha: 0.1)
+                : AppTheme.cyanNeon.withValues(alpha: 0.12),
+            child: InkWell(
+              onTap: _openKeySettings,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasKey
+                          ? Icons.check_circle_rounded
+                          : Icons.vpn_key_off_rounded,
+                      color: hasKey ? AppTheme.greenStatus : AppTheme.cyanNeon,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasKey ? 'Gemini connected' : 'API key not set',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            hasKey
+                                ? model
+                                : 'Tap here or “Add key” to configure Gemini',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded,
+                        color: AppTheme.textMuted),
+                  ],
                 ),
               ),
             ),
+          ),
           Expanded(
             child: messages.isEmpty
                 ? Center(
@@ -233,12 +340,24 @@ class _AiScreenState extends State<AiScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Ask anything — summaries, translate, privacy tips, browsing help.',
+                            'Ask anything — summaries, translate, privacy tips.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               color: AppTheme.textSecondary,
                             ),
                           ),
+                          if (!hasKey) ...[
+                            const SizedBox(height: 20),
+                            FilledButton.icon(
+                              onPressed: _openKeySettings,
+                              icon: const Icon(Icons.vpn_key_rounded),
+                              label: const Text('Add Gemini API key'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppTheme.cyanNeon,
+                                foregroundColor: AppTheme.bgDeep,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

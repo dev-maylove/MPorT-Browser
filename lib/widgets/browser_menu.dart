@@ -16,6 +16,7 @@ import '../features/tabs/tabs_screen.dart';
 import '../features/tools/find_in_page_screen.dart';
 import '../features/tools/share_sheet.dart';
 import '../features/tools/translate_screen.dart';
+import '../features/ai/ai_screen.dart';
 
 /// Hamburger menu — visual match to MPorT design (right glass panel).
 class BrowserMenu {
@@ -147,6 +148,9 @@ class _MenuPanelState extends State<_MenuPanel> {
                         }),
                         _row(Icons.translate_rounded, 'Translate', () {
                           _open(TranslateScreen(controller: c));
+                        }),
+                        _row(Icons.auto_awesome_rounded, 'MPorT AI', () {
+                          _open(const AiScreen());
                         }),
                         _desktopToggle(),
                         _row(Icons.share_rounded, 'Share', () {
