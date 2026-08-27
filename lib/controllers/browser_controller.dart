@@ -32,11 +32,11 @@ class BrowserController extends ChangeNotifier {
   bool desktopSite = false;
 
   static const _desktopUa =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
   static const _mobileUa =
-      'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36';
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 
 
   BrowserController() {
@@ -101,6 +101,8 @@ class BrowserController extends ChangeNotifier {
         onPageFinished: (url) async {
           tab.loading = false;
           tab.url = url;
+          // ignore: discarded_futures
+          applyDesktopViewport(controller);
           try {
             tab.canBack = await controller.canGoBack();
             tab.canForward = await controller.canGoForward();
@@ -208,17 +210,44 @@ class BrowserController extends ChangeNotifier {
 
 
   Future<void> setDesktopSite(bool enabled) async {
-    if (desktopSite == enabled) return;
     desktopSite = enabled;
     await _applyUserAgentToAllTabs();
-    // Reload active page so server serves desktop/mobile layout
     if (tabs.tabs.isNotEmpty) {
-      final url = tabs.active.url;
-      if (url.isNotEmpty && url != 'about:blank') {
+      final tab = tabs.active;
+      final url = tab.url;
+      if (!kIsWeb && url.isNotEmpty && url != 'about:blank') {
+        try {
+          await tab.controller.loadRequest(Uri.parse(url));
+        } catch (_) {
+          await load(url);
+        }
+      } else if (url.isNotEmpty && url != 'about:blank') {
         await load(url);
       }
     }
     _notify();
+  }
+
+  Future<void> applyDesktopViewport(WebViewController controller) async {
+    if (kIsWeb) return;
+    try {
+      if (desktopSite) {
+        await controller.runJavaScript(
+          "(function(){var w=Math.max(1280,window.screen.width||1280);"
+          "var m=document.querySelector('meta[name=viewport]');"
+          "if(!m){m=document.createElement('meta');m.name='viewport';"
+          "document.head.appendChild(m);}"
+          "m.setAttribute('content','width='+w+', initial-scale=1');"
+          "if(document.body)document.body.style.minWidth=w+'px';})();",
+        );
+      } else {
+        await controller.runJavaScript(
+          "(function(){var m=document.querySelector('meta[name=viewport]');"
+          "if(m)m.setAttribute('content','width=device-width, initial-scale=1');"
+          "if(document.body)document.body.style.minWidth='';})();",
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _applyUserAgentToAllTabs() async {

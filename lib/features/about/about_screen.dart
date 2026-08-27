@@ -18,10 +18,10 @@ class AboutScreen extends StatelessWidget {
             child: Container(
               width: 88,
               height: 88,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: AppTheme.gradientAi,
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(color: AppTheme.cyanGlow, blurRadius: 24, spreadRadius: 2),
                 ],
               ),

@@ -7,6 +7,7 @@ import '../features/about/about_screen.dart';
 import '../features/bookmarks/bookmarks_screen.dart';
 import '../features/downloads/downloads_screen.dart';
 import '../features/extensions/extensions_screen.dart';
+import '../features/developer/developer_screen.dart';
 import '../features/history/history_screen.dart';
 import '../features/privacy/privacy_screen.dart';
 import '../features/search/search_engines_screen.dart';
@@ -153,7 +154,7 @@ class _MenuPanelState extends State<_MenuPanel> {
                           ShareSheet.shareCurrent(context, c);
                         }),
                         _row(Icons.extension_rounded, 'Extensions', () {
-                          _open(const ExtensionsScreen());
+                          _open(ExtensionsScreen(controller: c));
                         }),
 
                         _section('PRIVACY & SECURITY'),
@@ -169,6 +170,9 @@ class _MenuPanelState extends State<_MenuPanel> {
 
                         _row(Icons.settings_rounded, 'Settings', () {
                           _open(SettingsScreen(controller: c));
+                        }),
+                        _row(Icons.developer_mode_rounded, 'Developer Tools', () {
+                          _open(DeveloperScreen(controller: c));
                         }),
                         _row(Icons.language_rounded, 'Search Engine', () {
                           _open(SearchEnginesScreen(controller: c));

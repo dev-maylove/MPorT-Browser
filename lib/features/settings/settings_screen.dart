@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../controllers/browser_controller.dart';
 import '../../core/config/app_config.dart';
 import '../../core/theme/app_theme.dart';
+import '../developer/developer_screen.dart';
 import '../about/about_screen.dart';
 import '../permissions/permissions_screen.dart';
 import '../privacy/privacy_screen.dart';
@@ -101,7 +102,11 @@ class SettingsScreen extends StatelessWidget {
           _tile(Icons.translate_rounded, 'Translate pages', 'Offer when needed', null),
 
           _section('Advanced'),
-          _tile(Icons.developer_mode_rounded, 'Developer options', 'Diagnostics & console', null),
+          _tile(Icons.developer_mode_rounded, 'Developer options', 'Diagnostics & console', () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => DeveloperScreen(controller: controller),
+            ));
+          }),
           _tile(Icons.storage_rounded, 'Storage', 'Cache and site data', null),
 
           _section('About'),
