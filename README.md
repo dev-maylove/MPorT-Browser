@@ -122,7 +122,10 @@ Other platforms (iOS / web / desktop) have been removed from this repo.
 
 ## Engine browser (Android)
 
-MPorT memakai **Android System WebView berbasis Chromium** lewat `flutter_inappwebview`
+**webview_flutter 4.14.1** (official Flutter team, System WebView / Chromium).
+
+
+MPorT memakai **Android System WebView berbasis Chromium** lewat `webview_flutter`
 (standar industri untuk browser Flutter mobile, setara Chrome mobile API).
 
 **Bukan** embed Chromium/CEF penuh:

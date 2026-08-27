@@ -73,16 +73,8 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     }
     setState(() => _loadingElements = true);
     try {
-      final ctrl = c!.tabs.active.controller;
-      if (ctrl == null) {
-        setState(() {
-          _elementsHtml = '(WebView controller not ready)';
-          _loadingElements = false;
-        });
-        return;
-      }
-      final result = await ctrl.evaluateJavascript(
-        source: '(function(){try{var html=document.documentElement.outerHTML||"";if(html.length>12000)html=html.substring(0,12000)+"\n...truncated";return html;}catch(e){return String(e);}})()',
+      final result = await c!.tabs.active.controller.runJavaScriptReturningResult(
+        '(function(){try{var html=document.documentElement.outerHTML||"";if(html.length>12000)html=html.substring(0,12000)+"\n...truncated";return html;}catch(e){return String(e);}})()',
       );
       setState(() {
         _elementsHtml = result?.toString() ?? '(empty)';
@@ -95,6 +87,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
       });
     }
   }
+
 
   Future<void> _refreshPageInfo() async {
     if (c == null) {
@@ -112,14 +105,8 @@ class _DeveloperScreenState extends State<DeveloperScreen>
       ..writeln('Can go forward: ${tab.canForward}');
     if (!kIsWeb) {
       try {
-        final ctrlUa = tab.controller;
-        if (ctrlUa != null) {
-          try {
-            final settings = await ctrlUa.getSettings();
-            final ua = settings?.userAgent;
-            if (ua != null && ua.isNotEmpty) buf.writeln('User-Agent: $ua');
-          } catch (_) {}
-        }
+        final ua = await tab.controller.getUserAgent();
+        buf.writeln('User-Agent: $ua');
       } catch (_) {}
     }
     setState(() => _pageInfo = buf.toString());
@@ -134,68 +121,11 @@ class _DeveloperScreenState extends State<DeveloperScreen>
       return;
     }
     try {
-      final ctrl = c!.tabs.active.controller;
-      if (ctrl == null) {
-        _log('error', 'WebView controller not ready');
-        return;
-      }
-      final result = await ctrl.evaluateJavascript(source: code);
+      final result = await c!.tabs.active.controller.runJavaScriptReturningResult(code);
       _log('result', result?.toString() ?? 'undefined');
     } catch (e) {
       _log('error', e.toString());
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF161B22),
-        title: Text(
-          'Developer Tools',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: () {
-              _refreshElements();
-              _refreshPageInfo();
-              _log('system', 'Refreshed');
-            },
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          indicatorColor: AppTheme.cyanNeon,
-          labelColor: AppTheme.cyanNeon,
-          unselectedLabelColor: AppTheme.textMuted,
-          labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
-          tabs: const [
-            Tab(text: 'Elements'),
-            Tab(text: 'Console'),
-            Tab(text: 'Network'),
-            Tab(text: 'Sources'),
-            Tab(text: 'Application'),
-            Tab(text: 'Info'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [
-          _elementsTab(),
-          _consoleTab(),
-          _networkTab(),
-          _sourcesTab(),
-          _applicationTab(),
-          _infoTab(),
-        ],
-      ),
-    );
   }
 
   Widget _elementsTab() {
@@ -376,10 +306,8 @@ class _DeveloperScreenState extends State<DeveloperScreen>
           onTap: () async {
             if (c == null || kIsWeb) return;
             try {
-              final ctrl = c!.tabs.active.controller;
-              if (ctrl == null) return;
-              await ctrl.evaluateJavascript(
-                source: 'try{localStorage.clear();sessionStorage.clear();}catch(e){}',
+              await c!.tabs.active.controller.runJavaScript(
+                'try{localStorage.clear();sessionStorage.clear();}catch(e){}',
               );
               _log('system', 'Cleared localStorage + sessionStorage');
               if (mounted) {

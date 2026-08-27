@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../browser/tab_manager.dart';
 import '../core/config/app_config.dart';
 import '../core/utils/url_utils.dart';
@@ -38,7 +39,6 @@ class BrowserController extends ChangeNotifier {
       'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 
-
   BrowserController() {
     search = SearchService(storage: storage);
     UrlUtils.searchService = search;
@@ -60,8 +60,13 @@ class BrowserController extends ChangeNotifier {
     UrlUtils.searchService = search;
 
     final tab = tabs.create(initialUrl: AppConfig.webBaseUrl);
-    tab.url = AppConfig.webBaseUrl;
-    if (kIsWeb) {
+    _attach(tab);
+    if (!kIsWeb) {
+      try {
+        await tab.controller.loadRequest(Uri.parse(AppConfig.webBaseUrl));
+      } catch (_) {}
+    } else {
+      tab.url = AppConfig.webBaseUrl;
       tab.loading = false;
       tab.progress = 100;
     }
@@ -75,7 +80,64 @@ class BrowserController extends ChangeNotifier {
   }
 
   void _attach(BrowserTab tab) {
-    // Navigation callbacks live in BrowserView (InAppWebView / Chromium WebView).
+    if (kIsWeb) return;
+
+    final controller = tab.controller;
+    // ignore: discarded_futures
+    _applyUserAgent(controller);
+    _configureAndroidWebView(controller);
+    controller.setNavigationDelegate(
+      NavigationDelegate(
+        onProgress: (value) {
+          tab.progress = value;
+          tab.notify();
+          _notify();
+        },
+        onPageStarted: (url) {
+          tab.loading = true;
+          tab.url = url;
+          tab.notify();
+          _notify();
+        },
+        onPageFinished: (url) async {
+          tab.loading = false;
+          tab.url = url;
+          // ignore: discarded_futures
+          applyDesktopViewport(controller);
+          try {
+            tab.canBack = await controller.canGoBack();
+            tab.canForward = await controller.canGoForward();
+          } catch (_) {}
+
+          try {
+            final title = await controller.getTitle();
+            if (title != null && title.trim().isNotEmpty) {
+              tab.title = title.trim();
+            }
+          } catch (_) {}
+
+          if (!tab.private && url.isNotEmpty && url != 'about:blank') {
+            storage.addHistory(
+              HistoryEntry(
+                url: url,
+                title: tab.title,
+                visitedAt: DateTime.now(),
+              ),
+            );
+          }
+
+          tab.notify();
+          _notify();
+        },
+        onNavigationRequest: (request) {
+          final uri = Uri.tryParse(request.url);
+          if (uri != null && blocker.shouldBlock(uri)) {
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+      ),
+    );
   }
 
   Future<void> open(String value, {bool private = false}) async {
@@ -90,7 +152,7 @@ class BrowserController extends ChangeNotifier {
       tab.notify();
     } else {
       try {
-        await _loadInController(tab, url);
+        await tab.controller.loadRequest(Uri.parse(url));
       } catch (_) {}
     }
     if (!private && url != 'about:blank') {
@@ -105,8 +167,11 @@ class BrowserController extends ChangeNotifier {
     _notify();
   }
 
-  /// Explicit search using current (or given) engine.
-  Future<void> searchQuery(String query, {SearchEngine? engine, bool newTab = false}) async {
+  Future<void> searchQuery(
+    String query, {
+    SearchEngine? engine,
+    bool newTab = false,
+  }) async {
     final q = query.trim();
     if (q.isEmpty) return;
     final eng = engine ?? search.current;
@@ -135,7 +200,7 @@ class BrowserController extends ChangeNotifier {
     tab.notify();
     if (!kIsWeb) {
       try {
-        await _loadInController(tab, url);
+        await tab.controller.loadRequest(Uri.parse(url));
       } catch (_) {}
     } else {
       tab.loading = false;
@@ -146,7 +211,6 @@ class BrowserController extends ChangeNotifier {
     _notify();
   }
 
-
   Future<void> setDesktopSite(bool enabled) async {
     desktopSite = enabled;
     await _applyUserAgentToAllTabs();
@@ -155,7 +219,7 @@ class BrowserController extends ChangeNotifier {
       final url = tab.url;
       if (!kIsWeb && url.isNotEmpty && url != 'about:blank') {
         try {
-          await _loadInController(tab, url);
+          await tab.controller.loadRequest(Uri.parse(url));
         } catch (_) {
           await load(url);
         }
@@ -166,20 +230,25 @@ class BrowserController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> applyDesktopViewport(InAppWebViewController controller) async {
+  Future<void> applyDesktopViewport(WebViewController controller) async {
     if (kIsWeb) return;
     try {
-      final js = desktopSite
-          ? "(function(){var w=Math.max(1280,window.screen.width||1280);"
-            "var m=document.querySelector('meta[name=viewport]');"
-            "if(!m){m=document.createElement('meta');m.name='viewport';"
-            "document.head.appendChild(m);}"
-            "m.setAttribute('content','width='+w+', initial-scale=1');"
-            "if(document.body)document.body.style.minWidth=w+'px';})();"
-          : "(function(){var m=document.querySelector('meta[name=viewport]');"
-            "if(m)m.setAttribute('content','width=device-width, initial-scale=1');"
-            "if(document.body)document.body.style.minWidth='';})();";
-      await controller.evaluateJavascript(source: js);
+      if (desktopSite) {
+        await controller.runJavaScript(
+          "(function(){var w=Math.max(1280,window.screen.width||1280);"
+          "var m=document.querySelector('meta[name=viewport]');"
+          "if(!m){m=document.createElement('meta');m.name='viewport';"
+          "document.head.appendChild(m);}"
+          "m.setAttribute('content','width='+w+', initial-scale=1');"
+          "if(document.body)document.body.style.minWidth=w+'px';})();",
+        );
+      } else {
+        await controller.runJavaScript(
+          "(function(){var m=document.querySelector('meta[name=viewport]');"
+          "if(m)m.setAttribute('content','width=device-width, initial-scale=1');"
+          "if(document.body)document.body.style.minWidth='';})();",
+        );
+      }
     } catch (_) {}
   }
 
@@ -187,18 +256,31 @@ class BrowserController extends ChangeNotifier {
     if (kIsWeb) return;
     final ua = desktopSite ? _desktopUa : _mobileUa;
     for (final tab in tabs.tabs) {
-      final c = tab.controller;
-      if (c == null) continue;
       try {
-        await c.setSettings(
-          settings: InAppWebViewSettings(userAgent: ua),
-        );
+        await tab.controller.setUserAgent(ua);
       } catch (_) {}
     }
   }
 
+  Future<void> _applyUserAgent(WebViewController controller) async {
+    if (kIsWeb) return;
+    try {
+      await controller.setUserAgent(desktopSite ? _desktopUa : _mobileUa);
+    } catch (_) {}
+  }
 
-  /// Chrome-like page translation via Google Website Translator injection.
+  void _configureAndroidWebView(WebViewController controller) {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final platform = controller.platform;
+      if (platform is AndroidWebViewController) {
+        platform.setMediaPlaybackRequiresUserGesture(false);
+        AndroidWebViewController.enableDebugging(false);
+      }
+    } catch (_) {}
+  }
+
   Future<void> translatePageWithGoogle({String targetLang = 'id'}) async {
     if (tabs.tabs.isEmpty) return;
     final tab = tabs.active;
@@ -214,7 +296,7 @@ class BrowserController extends ChangeNotifier {
     if (!kIsWeb) {
       try {
         final js = _googleTranslateInjectJs(targetLang);
-        final result = await tab.controller?.evaluateJavascript(source: js);
+        final result = await tab.controller.runJavaScriptReturningResult(js);
         final s = result?.toString() ?? '';
         if (s.startsWith('err')) {
           await _openGoogleTranslateProxy(url, targetLang);
@@ -246,7 +328,7 @@ class BrowserController extends ChangeNotifier {
         "},'google_translate_element');"
         'setTimeout(function(){'
         "var sel=document.querySelector('.goog-te-combo');"
-        "if(sel){sel.value='" + lang + "';sel.dispatchEvent(new Event('change'));}"
+        "if(sel){sel.value='$lang';sel.dispatchEvent(new Event('change'));}"
         '},900);'
         '};'
         "if(!document.getElementById('mport-gt-script')){"
@@ -261,7 +343,6 @@ class BrowserController extends ChangeNotifier {
 
   Future<void> _openGoogleTranslateProxy(String url, String targetLang) async {
     final encoded = Uri.encodeComponent(url);
-    // client=webapp is more reliable than classic iframe error dog
     await load(
       'https://translate.google.com/translate?sl=auto&tl=$targetLang&hl=$targetLang&u=$encoded&client=webapp',
     );
@@ -270,22 +351,19 @@ class BrowserController extends ChangeNotifier {
   Future<void> showOriginalPage() async {
     if (tabs.tabs.isEmpty || kIsWeb) return;
     try {
-      await tabs.active.controller?.evaluateJavascript(
-        source:
-            "(function(){var el=document.getElementById('mport-gt-root');if(el)el.remove();"
-            "var b=document.querySelector('.goog-te-banner-frame');if(b&&b.parentNode)b.parentNode.removeChild(b);"
-            "document.body.style.top='0';})();",
+      await tabs.active.controller.runJavaScript(
+        "(function(){var el=document.getElementById('mport-gt-root');if(el)el.remove();"
+        "var b=document.querySelector('.goog-te-banner-frame');if(b&&b.parentNode)b.parentNode.removeChild(b);"
+        "document.body.style.top='0';})();",
       );
     } catch (_) {}
   }
 
-  /// Returns true if WebView history went back.
   Future<bool> back() async {
     if (tabs.tabs.isEmpty || kIsWeb) return false;
     try {
-      final c = tabs.active.controller;
-      if (c != null && await c.canGoBack()) {
-        await c.goBack();
+      if (await tabs.active.controller.canGoBack()) {
+        await tabs.active.controller.goBack();
         return true;
       }
     } catch (_) {}
@@ -294,9 +372,8 @@ class BrowserController extends ChangeNotifier {
 
   Future<void> forward() async {
     if (tabs.tabs.isEmpty || kIsWeb) return;
-    final c = tabs.active.controller;
-    if (c != null && await c.canGoForward()) {
-      await c.goForward();
+    if (await tabs.active.controller.canGoForward()) {
+      await tabs.active.controller.goForward();
     }
   }
 
@@ -314,7 +391,7 @@ class BrowserController extends ChangeNotifier {
       _notify();
       return;
     }
-    await tabs.active.controller?.reload();
+    await tabs.active.controller.reload();
   }
 
   void selectTab(int index) {
@@ -331,17 +408,14 @@ class BrowserController extends ChangeNotifier {
     open('about:blank', private: true);
   }
 
-  /// Open a fresh home / start page tab (about:blank landing).
   Future<void> newHomeTab() async {
     await open('about:blank', private: false);
   }
 
-  /// Open a normal new tab.
   Future<void> newTab() async {
     await open('about:blank', private: false);
   }
 
-  /// Assign active tab to a new named group.
   void addActiveTabToNewGroup({String name = 'Group'}) {
     if (tabs.tabs.isEmpty) return;
     final tab = tabs.active;
@@ -355,20 +429,6 @@ class BrowserController extends ChangeNotifier {
   void closePrivateTabs() {
     tabs.closePrivate();
     _notify();
-  }
-
-
-  Future<void> _loadInController(BrowserTab tab, String url) async {
-    final c = tab.controller;
-    tab.url = url;
-    tab.notify();
-    if (c == null) {
-      // Widget belum attach — InAppWebView akan load URL dari tab.url
-      return;
-    }
-    try {
-      await c.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
-    } catch (_) {}
   }
 
   String _titleFromUrl(String url) {

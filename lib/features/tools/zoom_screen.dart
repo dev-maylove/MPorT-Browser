@@ -21,10 +21,8 @@ class _ZoomScreenState extends State<ZoomScreen> {
     if (kIsWeb) return;
     try {
       final pct = (z * 100).round();
-      final ctrl = widget.controller.tabs.active.controller;
-      if (ctrl == null) return;
-      await ctrl.evaluateJavascript(
-        source: 'document.body.style.zoom = "$pct%";',
+      await widget.controller.tabs.active.controller.runJavaScript(
+        'document.body.style.zoom = "$pct%";',
       );
     } catch (_) {}
   }
