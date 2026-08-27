@@ -181,13 +181,16 @@ class AiService {
             break;
           }
 
-          if (msg.contains('api key') ||
-              msg.contains('api_key') ||
-              msg.contains('permission') ||
-              msg.contains('401') ||
-              msg.contains('403') ||
-              msg.contains('invalid')) {
+          if (msg.contains('api key not valid') ||
+              msg.contains('api_key_invalid') ||
+              msg.contains('permission denied') ||
+              msg.contains('[401]') ||
+              msg.contains('[403]')) {
             rethrow;
+          }
+          // 400 invalid argument → try next model / simplified payload
+          if (msg.contains('invalid argument') || msg.contains('[400]')) {
+            break;
           }
 
           // Empty answer / parse → try next model
@@ -255,39 +258,64 @@ class AiService {
 
     final normalized = _normalizeContents(contents);
 
-    final generationConfig = <String, dynamic>{
-      'temperature': 0.7,
-      'maxOutputTokens': 1024,
-    };
-    // Disable extended thinking so Flash models return text quickly
-    if (model.contains('3.')) {
-      generationConfig['thinkingConfig'] = {'thinkingBudget': 0};
-    }
-
-    final body = {
-      'systemInstruction': {
-        'parts': [
-          {'text': _systemPrompt},
-        ],
-      },
+    // Minimal valid Gemini payload (avoid 400 invalid argument)
+    final body = <String, dynamic>{
       'contents': normalized,
-      'generationConfig': generationConfig,
+      'generationConfig': {
+        'temperature': 0.7,
+        'maxOutputTokens': 1024,
+      },
+    };
+    // systemInstruction supported on most Flash models; omit if it causes 400 (retried below)
+    body['systemInstruction'] = {
+      'parts': [
+        {'text': _systemPrompt},
+      ],
     };
 
-    late http.Response response;
-    try {
-      response = await http
+    Future<http.Response> doPost(Map<String, dynamic> payload) {
+      return http
           .post(
             uri,
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            body: jsonEncode(body),
+            body: jsonEncode(payload),
           )
           .timeout(const Duration(seconds: 20));
+    }
+
+    late http.Response response;
+    try {
+      response = await doPost(body);
     } on TimeoutException {
       throw TimeoutException('Timeout memanggil $model (20s)');
+    }
+
+    // One automatic retry without systemInstruction on 400 invalid argument
+    if (response.statusCode == 400 && body.containsKey('systemInstruction')) {
+      final slim = Map<String, dynamic>.from(body)..remove('systemInstruction');
+      // Prepend system as first user turn
+      final contents = (slim['contents'] as List).toList();
+      contents.insert(0, {
+        'role': 'user',
+        'parts': [
+          {'text': '[System] $_systemPrompt'},
+        ],
+      });
+      contents.insert(1, {
+        'role': 'model',
+        'parts': [
+          {'text': 'OK'},
+        ],
+      });
+      slim['contents'] = contents;
+      try {
+        response = await doPost(slim);
+      } on TimeoutException {
+        throw TimeoutException('Timeout memanggil $model (20s)');
+      }
     }
 
     if (response.body.isEmpty) {
@@ -310,7 +338,6 @@ class AiService {
       final msg = err is Map
           ? (err['message'] ?? 'Gemini error ${response.statusCode}')
           : 'Gemini error ${response.statusCode}';
-      // If thinkingConfig rejected, retry once without it is handled by caller model fallback
       throw Exception('$msg [${response.statusCode}]');
     }
 
@@ -343,7 +370,23 @@ class AiService {
   List<Map<String, dynamic>> _normalizeContents(
     List<Map<String, dynamic>> raw,
   ) {
-    if (raw.isEmpty) {
+    final out = <Map<String, dynamic>>[];
+    String? lastRole;
+    for (final item in raw) {
+      final role = item['role'] as String? ?? 'user';
+      final parts = item['parts'];
+      if (parts is! List || parts.isEmpty) continue;
+      // Gemini requires strictly alternating user/model roles
+      if (lastRole == role && out.isNotEmpty) {
+        final prevParts = (out.last['parts'] as List).toList();
+        prevParts.addAll(parts);
+        out.last = {'role': role, 'parts': prevParts};
+      } else {
+        out.add({'role': role, 'parts': List<dynamic>.from(parts)});
+        lastRole = role;
+      }
+    }
+    if (out.isEmpty) {
       return [
         {
           'role': 'user',
@@ -353,26 +396,12 @@ class AiService {
         },
       ];
     }
-    final out = <Map<String, dynamic>>[];
-    String? lastRole;
-    for (final item in raw) {
-      final role = item['role'] as String? ?? 'user';
-      final parts = item['parts'];
-      if (parts is! List || parts.isEmpty) continue;
-      if (lastRole == role && out.isNotEmpty) {
-        final prevParts = (out.last['parts'] as List).toList();
-        prevParts.addAll(parts);
-        out.last = {'role': role, 'parts': prevParts};
-      } else {
-        out.add({'role': role, 'parts': parts});
-        lastRole = role;
-      }
-    }
-    if (out.isEmpty || out.first['role'] != 'user') {
+    // Must start with user
+    if (out.first['role'] != 'user') {
       out.insert(0, {
         'role': 'user',
         'parts': [
-          {'text': '(start)'},
+          {'text': 'Hi'},
         ],
       });
     }

@@ -1,6 +1,6 @@
 class AppConfig {
   static const appName = 'MPorT Browser';
-  static const version = '2.1.6';
+  static const version = '2.1.7';
   static const brandName = 'MandalaNet';
 
   /// Public web portal (New Tab default / home page inside WebView).

@@ -17,8 +17,8 @@ android {
         applicationId "id.mport.browser"
         minSdk 24
         targetSdk flutter.targetSdkVersion
-        versionCode 16
-        versionName "2.1.6"
+        versionCode 17
+        versionName "2.1.7"
     }
 
     buildTypes {
