@@ -73,14 +73,16 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     }
     setState(() => _loadingElements = true);
     try {
-      final result = await c!.tabs.active.controller.runJavaScriptReturningResult(
-        r'''(function(){
-          try {
-            var html = document.documentElement.outerHTML || '';
-            if (html.length > 12000) html = html.substring(0, 12000) + '\n… truncated …';
-            return html;
-          } catch(e) { return String(e); }
-        })()''',
+      final ctrl = c!.tabs.active.controller;
+      if (ctrl == null) {
+        setState(() {
+          _elementsHtml = '(WebView controller not ready)';
+          _loadingElements = false;
+        });
+        return;
+      }
+      final result = await ctrl.evaluateJavascript(
+        source: '(function(){try{var html=document.documentElement.outerHTML||"";if(html.length>12000)html=html.substring(0,12000)+"\n...truncated";return html;}catch(e){return String(e);}})()',
       );
       setState(() {
         _elementsHtml = result?.toString() ?? '(empty)';
@@ -110,8 +112,14 @@ class _DeveloperScreenState extends State<DeveloperScreen>
       ..writeln('Can go forward: ${tab.canForward}');
     if (!kIsWeb) {
       try {
-        final ua = await tab.controller.getUserAgent();
-        buf.writeln('User-Agent: $ua');
+        final ctrlUa = tab.controller;
+        if (ctrlUa != null) {
+          try {
+            final settings = await ctrlUa.getSettings();
+            final ua = settings?.userAgent;
+            if (ua != null && ua.isNotEmpty) buf.writeln('User-Agent: $ua');
+          } catch (_) {}
+        }
       } catch (_) {}
     }
     setState(() => _pageInfo = buf.toString());
@@ -126,7 +134,12 @@ class _DeveloperScreenState extends State<DeveloperScreen>
       return;
     }
     try {
-      final result = await c!.tabs.active.controller.runJavaScriptReturningResult(code);
+      final ctrl = c!.tabs.active.controller;
+      if (ctrl == null) {
+        _log('error', 'WebView controller not ready');
+        return;
+      }
+      final result = await ctrl.evaluateJavascript(source: code);
       _log('result', result?.toString() ?? 'undefined');
     } catch (e) {
       _log('error', e.toString());
@@ -363,8 +376,10 @@ class _DeveloperScreenState extends State<DeveloperScreen>
           onTap: () async {
             if (c == null || kIsWeb) return;
             try {
-              await c!.tabs.active.controller.runJavaScript(
-                'try{localStorage.clear();sessionStorage.clear();}catch(e){}',
+              final ctrl = c!.tabs.active.controller;
+              if (ctrl == null) return;
+              await ctrl.evaluateJavascript(
+                source: 'try{localStorage.clear();sessionStorage.clear();}catch(e){}',
               );
               _log('system', 'Cleared localStorage + sessionStorage');
               if (mounted) {

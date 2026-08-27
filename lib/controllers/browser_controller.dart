@@ -358,6 +358,19 @@ class BrowserController extends ChangeNotifier {
   }
 
 
+  Future<void> _loadInController(BrowserTab tab, String url) async {
+    final c = tab.controller;
+    tab.url = url;
+    tab.notify();
+    if (c == null) {
+      // Widget belum attach — InAppWebView akan load URL dari tab.url
+      return;
+    }
+    try {
+      await c.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
+    } catch (_) {}
+  }
+
   String _titleFromUrl(String url) {
     if (url.isEmpty || url == 'about:blank') return 'New Tab';
     try {

@@ -28,10 +28,9 @@ class _FindInPageScreenState extends State<FindInPageScreen> {
       return;
     }
     try {
-      // Best-effort JS highlight
-      await widget.controller.tabs.active.controller.runJavaScript(
-        "window.find(${_jsStr(q)});",
-      );
+      final ctrl = widget.controller.tabs.active.controller;
+      if (ctrl == null) throw StateError('no controller');
+      await ctrl.evaluateJavascript(source: "window.find(${_jsStr(q)});");
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
