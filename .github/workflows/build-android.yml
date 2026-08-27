@@ -9,8 +9,11 @@ permissions:
   contents: read
 
 env:
-  MPORT_URL: ${{ vars.MPORT_URL }}
-  MPORT_API_URL: ${{ vars.MPORT_API_URL }}
+  # Repository Variables are optional. Defaults keep CI buildable even when
+  # the repository has not configured them yet. Override them in GitHub
+  # Settings → Secrets and variables → Actions → Variables.
+  MPORT_URL: ${{ vars.MPORT_URL || 'https://mandalanet.id' }}
+  MPORT_API_URL: ${{ vars.MPORT_API_URL || 'https://mandalanet.id/api' }}
 
 jobs:
   build-android:
@@ -41,20 +44,36 @@ jobs:
       - name: Flutter doctor
         run: flutter doctor -v
 
-      - name: Validate required HTTPS configuration
+      - name: Validate HTTPS configuration
         env:
-          MPORT_URL: ${{ vars.MPORT_URL }}
-          MPORT_API_URL: ${{ vars.MPORT_API_URL }}
+          MPORT_URL: ${{ vars.MPORT_URL || 'https://mandalanet.id' }}
+          MPORT_API_URL: ${{ vars.MPORT_API_URL || 'https://mandalanet.id/api' }}
         run: |
           set -euo pipefail
-          for v in MPORT_URL MPORT_API_URL; do
-            if [ -z "${!v}" ]; then
-              echo "::error::Missing required repository variable: $v"
+
+          validate_https_url() {
+            local name="$1"
+            local value="$2"
+
+            if [ -z "$value" ]; then
+              echo "::error::$name resolved to an empty value"
               exit 1
             fi
-          done
-          case "$MPORT_URL" in https://*) ;; *) echo "::error::MPORT_URL must use HTTPS"; exit 1;; esac
-          case "$MPORT_API_URL" in https://*) ;; *) echo "::error::MPORT_API_URL must use HTTPS"; exit 1;; esac
+
+            case "$value" in
+              https://*) ;;
+              *)
+                echo "::error::$name must use HTTPS: $value"
+                exit 1
+                ;;
+            esac
+          }
+
+          validate_https_url "MPORT_URL" "$MPORT_URL"
+          validate_https_url "MPORT_API_URL" "$MPORT_API_URL"
+
+          echo "MPORT_URL configured."
+          echo "MPORT_API_URL configured."
 
       - name: Flutter dependencies
         run: flutter pub get
@@ -104,8 +123,8 @@ jobs:
 
       - name: Build signed APK
         env:
-          MPORT_URL: ${{ vars.MPORT_URL }}
-          MPORT_API_URL: ${{ vars.MPORT_API_URL }}
+          MPORT_URL: ${{ vars.MPORT_URL || 'https://mandalanet.id' }}
+          MPORT_API_URL: ${{ vars.MPORT_API_URL || 'https://mandalanet.id/api' }}
         run: |
           set -euo pipefail
           flutter build apk --release --tree-shake-icons \
@@ -116,8 +135,8 @@ jobs:
 
       - name: Build signed AAB
         env:
-          MPORT_URL: ${{ vars.MPORT_URL }}
-          MPORT_API_URL: ${{ vars.MPORT_API_URL }}
+          MPORT_URL: ${{ vars.MPORT_URL || 'https://mandalanet.id' }}
+          MPORT_API_URL: ${{ vars.MPORT_API_URL || 'https://mandalanet.id/api' }}
         run: |
           set -euo pipefail
           flutter build appbundle --release --tree-shake-icons \
