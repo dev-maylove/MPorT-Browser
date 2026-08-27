@@ -18,8 +18,6 @@ import '../features/tools/share_sheet.dart';
 import '../features/tools/translate_screen.dart';
 import '../features/ai/ai_screen.dart';
 import '../features/home/new_tab_screen.dart';
-import '../features/browser/browser_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/platform/native_bridge.dart';
 
 /// Hamburger menu — visual match to MPorT design (right glass panel).

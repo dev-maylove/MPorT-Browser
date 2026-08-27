@@ -17,8 +17,8 @@ android {
         applicationId "id.mport.browser"
         minSdk 24
         targetSdk flutter.targetSdkVersion
-        versionCode 7
-        versionName "2.0.7"
+        versionCode 8
+        versionName "2.0.8"
     }
 
     buildTypes {
@@ -41,5 +41,5 @@ flutter {
 }
 
 dependencies {
-    implementation "androidx.browser:browser:1.8.0"
+    // No androidx.browser — Custom Tabs replaced with plain Chrome/VIEW intents
 }

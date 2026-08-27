@@ -2,10 +2,8 @@ package id.mport.browser
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import androidx.browser.customtabs.CustomTabsIntent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -14,7 +12,7 @@ import io.flutter.plugin.common.MethodChannel
  * Native Android host for MPorT Browser.
  * - Handles http/https VIEW intents (default-browser eligible)
  * - Opens system default-app settings
- * - Optional Chrome Custom Tabs for external open
+ * - Opens URL in Chrome / external browser (no androidx.browser needed)
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "id.mport.browser/native"
@@ -57,7 +55,7 @@ class MainActivity : FlutterActivity() {
                     if (url.isNullOrBlank()) {
                         result.error("bad_url", "url required", null)
                     } else {
-                        openCustomTab(url)
+                        openInChromeOrBrowser(url)
                         result.success(true)
                     }
                 }
@@ -73,7 +71,6 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // Deliver cold-start URL after channel is ready
         pendingUrl?.let { url ->
             methodChannel?.invokeMethod("onOpenUrl", url)
             pendingUrl = null
@@ -119,22 +116,35 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun openCustomTab(url: String) {
-        try {
-            val builder = CustomTabsIntent.Builder()
-            builder.setShowTitle(true)
-            val customTabs = builder.build()
-            customTabs.launchUrl(this, Uri.parse(url))
-        } catch (_: Exception) {
-            // Fallback: external browser
+    /** Prefer Chrome, then any browser via ACTION_VIEW. */
+    private fun openInChromeOrBrowser(url: String) {
+        val uri = Uri.parse(url)
+        val chromePackages = listOf(
+            "com.android.chrome",
+            "com.chrome.beta",
+            "com.chrome.dev",
+            "com.google.android.apps.chrome"
+        )
+        for (pkg in chromePackages) {
             try {
-                startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                )
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage(pkg)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                if (intent.resolveActivity(packageManager) != null) {
+                    startActivity(intent)
+                    return
+                }
             } catch (_: Exception) {
             }
+        }
+        try {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, uri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (_: Exception) {
         }
     }
 }
