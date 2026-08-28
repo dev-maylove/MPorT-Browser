@@ -164,3 +164,7 @@ The Android app now compiles against SDK 37 to satisfy the current `flutter_secu
 
 ### v17 signature verification fix
 The APK/AAB build succeeded, but CI verification failed because the previous parser could produce an empty/incorrect expected digest. v17 extracts the signer digest robustly and hashes the exported keystore certificate directly.
+
+
+### UI reference update
+The browser toolbar now follows the supplied reference layout and the hamburger menu includes the requested quick-action row without changing the existing application color palette.

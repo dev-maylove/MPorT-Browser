@@ -7,22 +7,22 @@ class BrowserToolbar extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onSubmitted,
-    required this.onBack,
-    required this.onForward,
+    required this.onHome,
     required this.onRefresh,
     required this.onTabs,
     required this.onMenu,
+    this.tabCount = 1,
     this.onEditingChanged,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onSubmitted;
-  final FutureOr<void> Function() onBack;
-  final FutureOr<void> Function() onForward;
+  final VoidCallback onHome;
   final FutureOr<void> Function() onRefresh;
   final VoidCallback onTabs;
   final VoidCallback onMenu;
   final ValueChanged<bool>? onEditingChanged;
+  final int tabCount;
 
   @override
   State<BrowserToolbar> createState() => _BrowserToolbarState();
@@ -56,14 +56,10 @@ class _BrowserToolbarState extends State<BrowserToolbar> {
         child: Row(
           children: [
             IconButton(
-              onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-              color: AppTheme.textSecondary,
-            ),
-            IconButton(
-              onPressed: widget.onForward,
-              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
-              color: AppTheme.textSecondary,
+              tooltip: 'Home',
+              onPressed: widget.onHome,
+              icon: const Icon(Icons.home_outlined, size: 27),
+              color: AppTheme.textPrimary,
             ),
             Expanded(
               child: TextField(
@@ -81,21 +77,17 @@ class _BrowserToolbarState extends State<BrowserToolbar> {
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(
-                    Icons.lock_outline_rounded,
-                    size: 16,
-                    color: AppTheme.greenStatus,
-                  ),
-                  suffixIcon: IconButton(
-                    onPressed: widget.onRefresh,
-                    icon: const Icon(Icons.refresh_rounded, size: 20),
-                    color: AppTheme.cyanNeon,
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: AppTheme.textPrimary,
                   ),
                   hintText: 'Search, URL, or g / ddg + keywords',
                   hintStyle: const TextStyle(color: AppTheme.textMuted),
                   filled: true,
                   fillColor: AppTheme.bgCard,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
                     borderSide: BorderSide.none,
@@ -114,14 +106,44 @@ class _BrowserToolbarState extends State<BrowserToolbar> {
               ),
             ),
             IconButton(
+              tooltip: 'New tab',
               onPressed: widget.onTabs,
-              icon: const Icon(Icons.tab_rounded),
-              color: AppTheme.cyanNeon,
+              icon: const Icon(Icons.add_rounded, size: 30),
+              color: AppTheme.textPrimary,
+            ),
+            Semantics(
+              label: 'Tabs, ${widget.tabCount} open',
+              button: true,
+              child: InkWell(
+                onTap: widget.onTabs,
+                borderRadius: BorderRadius.circular(9),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: AppTheme.textPrimary.withValues(alpha: 0.9),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Text(
+                    widget.tabCount > 99 ? '99+' : '${widget.tabCount}',
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
             ),
             IconButton(
+              tooltip: 'Menu',
               onPressed: widget.onMenu,
-              icon: const Icon(Icons.menu_rounded),
-              color: AppTheme.textSecondary,
+              icon: const Icon(Icons.more_vert_rounded, size: 29),
+              color: AppTheme.textPrimary,
             ),
           ],
         ),

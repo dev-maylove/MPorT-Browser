@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 import '../controllers/browser_controller.dart';
 import '../core/config/app_config.dart';
 import '../features/about/about_screen.dart';
@@ -9,6 +10,8 @@ import '../features/downloads/downloads_screen.dart';
 import '../features/developer/developer_screen.dart';
 import '../features/history/history_screen.dart';
 import '../features/privacy/privacy_screen.dart';
+import '../features/page_info/page_info_screen.dart';
+import '../models/bookmark.dart';
 import '../features/search/search_engines_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/tabs/tabs_screen.dart';
@@ -105,6 +108,7 @@ class _MenuPanelState extends State<_MenuPanel> {
               child: Column(
                 children: [
                   _buildHeader(),
+                  _buildQuickActions(),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
@@ -197,6 +201,75 @@ class _MenuPanelState extends State<_MenuPanel> {
                   _buildFooter(),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Quick actions (Chrome-style row from the reference) ─────────────
+
+  Widget _buildQuickActions() {
+    final tab = c.tabs.active;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _quickAction(
+            Icons.arrow_back_rounded,
+            'Back',
+            tab.canBack ? () => c.back() : null,
+          ),
+          _quickAction(Icons.star_border_rounded, 'Bookmark', () async {
+            final url = tab.url.trim();
+            if (url.isEmpty || url == 'about:blank') return;
+            await c.storage.saveBookmark(
+              Bookmark(
+                id: const Uuid().v4(),
+                title: tab.title.isEmpty ? url : tab.title,
+                url: url,
+                folder: 'General',
+              ),
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Bookmark saved.')),
+              );
+            }
+          }),
+          _quickAction(Icons.download_rounded, 'Downloads', () {
+            _open(const DownloadsScreen());
+          }),
+          _quickAction(Icons.info_outline_rounded, 'Page info', () {
+            _open(PageInfoScreen(controller: c));
+          }),
+          _quickAction(Icons.refresh_rounded, 'Refresh', () => c.refresh()),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickAction(IconData icon, String label, VoidCallback? onTap) {
+    final enabled = onTap != null;
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: enabled
+            ? AppTheme.bgPrimary
+            : AppTheme.bgCard.withValues(alpha: 0.7),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(
+              icon,
+              size: 27,
+              color: enabled ? AppTheme.textPrimary : AppTheme.textMuted,
             ),
           ),
         ),

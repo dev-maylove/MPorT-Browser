@@ -46,3 +46,12 @@ The CI log showed `NoSuchMethodError: java.util.List.removeLast()` from Android 
 - Extracts the 64-hex SHA-256 signer digest directly from `apksigner` output.
 - Computes the expected SHA-256 from the exact certificate exported from the signing keystore.
 - Keeps strict equality validation; a mismatch still fails the workflow.
+
+
+## UI update - v18
+- Browser toolbar updated to the reference layout: Home, address field, New Tab (+), tab-count button, and vertical overflow menu.
+- Removed the inline refresh button from the address field; Refresh remains available in the hamburger quick-action row.
+- Address leading icon changed to the page-information style used by the reference.
+- Added a five-action quick row inside the hamburger menu: Back, Bookmark, Downloads, Page Info, Refresh.
+- Existing application color tokens/theme were preserved; no new color palette was introduced.
+- Existing browser functionality and signing/CI configuration were left intact.

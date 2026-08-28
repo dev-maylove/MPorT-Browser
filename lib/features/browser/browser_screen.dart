@@ -62,28 +62,21 @@ class _BrowserScreenState extends State<BrowserScreen> {
             children: [
               BrowserToolbar(
                 controller: _address,
+                onHome: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => NewTabScreen(controller: widget.controller),
+                    ),
+                    (route) => false,
+                  );
+                },
                 onEditingChanged: (editing) => _editingAddress = editing,
                 onSubmitted: (value) async {
                   _editingAddress = false;
                   await widget.controller.load(value);
                 },
-                onBack: () async {
-                  final wentBack = await widget.controller.back();
-                  if (!wentBack && context.mounted) {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              NewTabScreen(controller: widget.controller),
-                        ),
-                      );
-                    }
-                  }
-                },
-                onForward: () => widget.controller.forward(),
                 onRefresh: () => widget.controller.refresh(),
+                tabCount: widget.controller.tabs.tabs.length,
                 onTabs: () {
                   Navigator.push(
                     context,
