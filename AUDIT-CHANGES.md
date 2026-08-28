@@ -1,39 +1,22 @@
-# MPorT Browser — CI/Build Audit
+# MPorT Browser — v9 CI fix
 
-## Latest toolchain update
+## Fixed
 
-Updated the Android build toolchain to the currently documented stable combination:
-- Android Gradle Plugin (AGP): **9.3.0**
-- Gradle: **9.5.0**
-- Java/JDK: **17**
-- Kotlin: **built-in Kotlin via AGP 9** (no explicit `org.jetbrains.kotlin.android` plugin)
-- Android DSL: **new DSL enabled** (`android.newDsl=true`)
-- Flutter CI: stable channel
+- Fixed Flutter 3.47.2 + AGP 9 build failure caused by the Flutter Gradle plugin receiving an AGP 9 `ApplicationExtensionImpl` while legacy DSL access was enabled incorrectly.
+- Changed `android.newDsl=true` to `android.newDsl=false` so Flutter 3.47.2 uses its AGP-9 compatibility path for legacy DSL types.
+- Kept Built-in Kotlin enabled with `android.builtInKotlin=true`.
+- Kept the latest selected Android toolchain from v8: AGP 9.3.0, Gradle 9.5.0, JDK 17.
+- No `org.jetbrains.kotlin.android` plugin is applied by the app.
 
-This removes the previous explicit KGP 2.2.10/2.3.20 mismatch and avoids applying the legacy Kotlin Gradle Plugin with AGP 9.
+## Rationale
 
-## CI error addressed
+The CI error was:
+`ApplicationExtensionImpl$AgpDecorated_Decorated cannot be cast to AbstractAppExtension`.
 
-The previous build failed because Flutter detected Kotlin Gradle Plugin 2.2.10:
-`Your project's Kotlin version (2.2.10) is lower than Flutter's minimum supported version of 2.2.20.`
+Flutter's migration documentation states that AGP 9 uses the new DSL interfaces and that Flutter provides a compatibility path for legacy DSL types; the `android.newDsl` flag controls this migration path. For Flutter 3.47.x, disabling the new DSL avoids the class-cast failure while keeping AGP 9 and built-in Kotlin enabled.
 
-The project now uses AGP's built-in Kotlin integration instead of declaring `org.jetbrains.kotlin.android` in the Android app.
+## Verification
 
-## Files changed
-
-- `android/settings.gradle`
-- `android/app/build.gradle`
-- `android/gradle.properties`
-- `android/gradle/wrapper/gradle-wrapper.properties`
-
-No Dart source, assets, signing credentials, or application security configuration was intentionally changed.
-
-## Validation
-
-- ZIP extraction/repackaging verified.
-- No `2.2.10` reference remains in Android build configuration.
-- No explicit `org.jetbrains.kotlin.android` application remains in the Android project.
-- Gradle wrapper points to Gradle 9.5.0.
-- AGP plugin points to 9.3.0.
-
-A full `flutter build apk --release` still requires a Flutter/Android SDK environment and signing secrets, so this package has not been claimed as a locally produced APK.
+- ZIP extraction/repack integrity checked.
+- Android configuration checked for stale Kotlin plugin declarations and conflicting DSL flags.
+- `android.newDsl=false` and `android.builtInKotlin=true` are the only active migration flags.

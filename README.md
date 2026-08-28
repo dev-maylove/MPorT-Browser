@@ -96,9 +96,9 @@ adb install -r app-release.apk
 
 | Component | Version |
 |-----------|---------|
-| **AGP** | 9.1.0 |
+| **AGP** | 9.3.0 |
 | **Kotlin** | Built-in Kotlin (AGP 9) |
-| **Gradle** | 9.3.1 |
+| **Gradle** | 9.5.0 |
 | **Java** | 17 |
 | **minSdk** | 24 |
 | **applicationId** | `id.mport.browser` |
