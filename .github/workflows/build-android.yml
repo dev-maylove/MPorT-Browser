@@ -163,8 +163,8 @@ jobs:
           "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/apk-certs.txt
           keytool -list -v -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | tee /tmp/key-certs.txt
 
-          ACTUAL=$(grep 'Signer #1 certificate SHA-256 digest:' /tmp/apk-certs.txt | sed 's/.*: //' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
-          EXPECTED=$(grep 'SHA256:' /tmp/key-certs.txt | sed 's/.*SHA256: //' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          ACTUAL=$(grep -E '^(Signer #1 certificate SHA-256 digest:|V[234](\.[0-9]+)? Signer: certificate SHA-256 digest:)' /tmp/apk-certs.txt | head -1 | sed 's/.*: //' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          EXPECTED=$(grep 'SHA256:' /tmp/key-certs.txt | head -1 | sed 's/.*SHA256: //' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
           test -n "$ACTUAL"
           test -n "$EXPECTED"
           test "$ACTUAL" = "$EXPECTED"

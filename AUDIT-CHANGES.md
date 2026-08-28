@@ -32,3 +32,9 @@ Fixed the Gradle configuration error:
 ## v14 — AGP 9.3.2 lint crash fix
 
 The CI log showed `NoSuchMethodError: java.util.List.removeLast()` from Android Lint's bundled JavaDocParser while running on JDK 17. This is a known AGP 9.3 lint regression fixed in AGP 9.3.2. Updated the Android application plugin from AGP 9.3.0 to 9.3.2. Gradle remains 9.5.0 and JDK 17 remains unchanged. Compile SDK remains 37 for flutter_secure_storage compatibility.
+
+
+## v15
+- Fixed GitHub Actions APK signature verification parsing.
+- `apksigner --print-certs` on current Android Build Tools emits `V2 Signer: certificate SHA-256 digest:`; the workflow previously searched only for the obsolete `Signer #1 certificate SHA-256 digest:` form, causing a false CI failure after APK/AAB were successfully built.
+- Verification now accepts the current V2/V3 signer output while still comparing the certificate digest against the release keystore.
