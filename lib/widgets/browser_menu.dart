@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import '../controllers/browser_controller.dart';
 import '../core/config/app_config.dart';
+import '../core/theme/app_theme.dart';
 import '../features/about/about_screen.dart';
 import '../features/bookmarks/bookmarks_screen.dart';
 import '../features/downloads/downloads_screen.dart';
