@@ -1,4 +1,10 @@
 buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
     dependencies {
         // AGP 9 built-in Kotlin defaults to its bundled KGP. Flutter 3.47.2
         // requires KGP >= 2.2.20, so pin a newer compatible KGP explicitly.
