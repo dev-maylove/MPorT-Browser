@@ -153,3 +153,7 @@ Endpoint utama yang diharapkan client: `POST /api/v1/ai/chat` dengan body `messa
 ## Android toolchain
 
 This release uses AGP 9.3.0, Gradle 9.5.0, Java 17, and AGP built-in Kotlin with the new Android DSL. The legacy `org.jetbrains.kotlin.android` plugin is not applied.
+
+
+### v10 toolchain fix
+The root Gradle build explicitly pins Kotlin Gradle Plugin 2.3.20 so Flutter 3.47.2 does not see AGP's bundled KGP 2.2.10. Built-in Kotlin remains enabled.

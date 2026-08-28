@@ -20,3 +20,11 @@ Flutter's migration documentation states that AGP 9 uses the new DSL interfaces 
 - ZIP extraction/repack integrity checked.
 - Android configuration checked for stale Kotlin plugin declarations and conflicting DSL flags.
 - `android.newDsl=false` and `android.builtInKotlin=true` are the only active migration flags.
+
+
+## v10 — Flutter 3.47.2 KGP compatibility fix
+
+- Fixed CI failure where AGP 9 built-in Kotlin exposed bundled KGP 2.2.10, below Flutter 3.47.2 minimum 2.2.20.
+- Explicitly pins `org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20` in the root Gradle buildscript, as supported for overriding AGP's bundled KGP.
+- Kept AGP 9.3.0, Gradle 9.5.0, Java 17, `android.builtInKotlin=true`, and `android.newDsl=false`.
+- No `org.jetbrains.kotlin.android` plugin is applied by the app.
