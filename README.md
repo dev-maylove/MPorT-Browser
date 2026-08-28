@@ -157,3 +157,7 @@ This release uses AGP 9.3.0, Gradle 9.5.0, Java 17, and AGP built-in Kotlin with
 
 ### v10 toolchain fix
 The root Gradle build explicitly pins Kotlin Gradle Plugin 2.3.20 so Flutter 3.47.2 does not see AGP's bundled KGP 2.2.10. Built-in Kotlin remains enabled.
+
+
+### v13 build fix
+The Android app now compiles against SDK 37 to satisfy the current `flutter_secure_storage` AAR metadata requirement. Target/min SDK settings are unchanged.

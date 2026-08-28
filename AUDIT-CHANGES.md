@@ -21,3 +21,9 @@ Fixed the Gradle configuration error:
 - Confirmed the KGP dependency has repositories available to the `buildscript` classpath configuration.
 - Confirmed no `2.2.10` KGP reference exists in `android/`.
 - ZIP archive integrity verified after repackaging.
+
+
+## v13 – compileSdk 37 fix
+- Updated `android/app/build.gradle` from `compileSdk flutter.compileSdkVersion` (resolved to 36 in CI) to `compileSdk 37`.
+- This satisfies `flutter_secure_storage`, which requires Android API 37+.
+- Kept minSdk/targetSdk unchanged; compileSdk can be raised independently.
