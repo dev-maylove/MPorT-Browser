@@ -38,3 +38,11 @@ The CI log showed `NoSuchMethodError: java.util.List.removeLast()` from Android 
 - Fixed GitHub Actions APK signature verification parsing.
 - `apksigner --print-certs` on current Android Build Tools emits `V2 Signer: certificate SHA-256 digest:`; the workflow previously searched only for the obsolete `Signer #1 certificate SHA-256 digest:` form, causing a false CI failure after APK/AAB were successfully built.
 - Verification now accepts the current V2/V3 signer output while still comparing the certificate digest against the release keystore.
+
+## v17 — Robust APK signature verification
+
+- Fixed the CI signature verification step that still exited with code 1 after APK/AAB builds succeeded.
+- Replaced fragile `awk -F` parsing of `apksigner`/`keytool` human-readable output.
+- Extracts the 64-hex SHA-256 signer digest directly from `apksigner` output.
+- Computes the expected SHA-256 from the exact certificate exported from the signing keystore.
+- Keeps strict equality validation; a mismatch still fails the workflow.

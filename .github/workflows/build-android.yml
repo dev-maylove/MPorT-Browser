@@ -163,12 +163,29 @@ jobs:
           "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/apk-certs.txt
           keytool -list -v -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | tee /tmp/key-certs.txt
 
-          ACTUAL=$(awk -F 'certificate SHA-256 digest:[[:space:]]*' '/certificate SHA-256 digest:/ {print $2; exit}' /tmp/apk-certs.txt | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
-          EXPECTED=$(awk -F 'SHA256:[[:space:]]*' '/[[:space:]]SHA256:/ {print $2; exit}' /tmp/key-certs.txt | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          # Extract the APK signer certificate digest from apksigner output.
+          # Use a hex-only match so output formatting changes (spaces/labels)
+          # cannot make the verification variable empty.
+          ACTUAL=$(grep -i 'certificate SHA-256 digest:' /tmp/apk-certs.txt             | grep -oE '[0-9A-Fa-f]{64}'             | head -n 1             | tr '[:lower:]' '[:upper:]')
+
+          # Hash the exact certificate exported from the signing keystore.
+          # This avoids parsing keytool's human-readable fingerprint formatting.
+          EXPECTED=$(keytool -exportcert             -rfc             -keystore "$KEYSTORE_FILE"             -storepass "$KEYSTORE_PASSWORD"             -alias "$KEY_ALIAS" 2>/dev/null             | openssl x509 -outform DER             | sha256sum             | awk '{print toupper($1)}')
+
           test -n "$ACTUAL"
           test -n "$EXPECTED"
-          test "$ACTUAL" = "$EXPECTED"
+          test "${#ACTUAL}" -eq 64
+          test "${#EXPECTED}" -eq 64
+
+          if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+            echo "::error::APK signing certificate does not match the configured keystore."
+            echo "APK certificate SHA-256:      $ACTUAL"
+            echo "Keystore certificate SHA-256: $EXPECTED"
+            exit 1
+          fi
+
           echo "APK signature verified successfully."
+          echo "Certificate SHA-256: $ACTUAL"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

@@ -161,3 +161,6 @@ The root Gradle build explicitly pins Kotlin Gradle Plugin 2.3.20 so Flutter 3.4
 
 ### v13 build fix
 The Android app now compiles against SDK 37 to satisfy the current `flutter_secure_storage` AAR metadata requirement. Target/min SDK settings are unchanged.
+
+### v17 signature verification fix
+The APK/AAB build succeeded, but CI verification failed because the previous parser could produce an empty/incorrect expected digest. v17 extracts the signer digest robustly and hashes the exported keystore certificate directly.
