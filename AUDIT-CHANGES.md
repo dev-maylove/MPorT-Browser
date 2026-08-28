@@ -27,3 +27,8 @@ Fixed the Gradle configuration error:
 - Updated `android/app/build.gradle` from `compileSdk flutter.compileSdkVersion` (resolved to 36 in CI) to `compileSdk 37`.
 - This satisfies `flutter_secure_storage`, which requires Android API 37+.
 - Kept minSdk/targetSdk unchanged; compileSdk can be raised independently.
+
+
+## v14 — AGP 9.3.2 lint crash fix
+
+The CI log showed `NoSuchMethodError: java.util.List.removeLast()` from Android Lint's bundled JavaDocParser while running on JDK 17. This is a known AGP 9.3 lint regression fixed in AGP 9.3.2. Updated the Android application plugin from AGP 9.3.0 to 9.3.2. Gradle remains 9.5.0 and JDK 17 remains unchanged. Compile SDK remains 37 for flutter_secure_storage compatibility.
